@@ -283,13 +283,15 @@ export class CopyEngine extends DurableObject<Env> {
   }
 
   private async monitorPositions() {
+    const sl = this.s.stopLossPct, tp = this.s.takeProfitPct;
+    if (sl <= 0 && tp <= 0) return; // exits follow the trader only: no quotes, no requests
     const st = await this.state();
     for (const p of Object.values(st.positions)) {
       try {
         const q = await getQuote(this.s, p.mint, SOL_MINT, BigInt(p.amountRaw));
         const pct = ((Number(q.outAmount) / LAMPORTS_PER_SOL - p.costSol) / p.costSol) * 100;
-        if (pct <= -this.s.stopLossPct) await this.sellPosition(p, 1, `stop-loss ${pct.toFixed(0)} %`);
-        else if (pct >= this.s.takeProfitPct) await this.sellPosition(p, 1, `take-profit +${pct.toFixed(0)} %`);
+        if (sl > 0 && pct <= -sl) await this.sellPosition(p, 1, `stop-loss ${pct.toFixed(0)} %`);
+        else if (tp > 0 && pct >= tp) await this.sellPosition(p, 1, `take-profit +${pct.toFixed(0)} %`);
       } catch { /* pas de route pour l'instant : on réessaie au prochain tour */ }
     }
   }

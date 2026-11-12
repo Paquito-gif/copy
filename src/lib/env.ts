@@ -60,8 +60,8 @@ export function settings(env: Env) {
     maxPositionPct: n(env.MAX_POSITION_PCT, 8),
     maxOpenPositions: n(env.MAX_OPEN_POSITIONS, 6),
     minTradeSol: n(env.MIN_TRADE_SOL, 0.05),
-    stopLossPct: n(env.STOP_LOSS_PCT, 35),
-    takeProfitPct: n(env.TAKE_PROFIT_PCT, 150),
+    stopLossPct: n(env.STOP_LOSS_PCT, 0),   // 0 = off: exits follow the trader
+    takeProfitPct: n(env.TAKE_PROFIT_PCT, 0),
     maxDailyLossPct: n(env.MAX_DAILY_LOSS_PCT, 20),
     maxPriceImpactPct: n(env.MAX_PRICE_IMPACT_PCT, 3),
     slippageBps: n(env.SLIPPAGE_BPS, 300),

@@ -87,7 +87,7 @@ async function circuit() {
   $('fl-balance').textContent = pnl ? `${pnl.balanceSol.toFixed(3)} SOL` : 'balance unavailable';
   $('fl-burned').textContent = pnl ? `${pnl.buybackSol.toFixed(3)} SOL` : '–';
   const r = cfg.rules;
-  if (r) $('fl-rules').textContent = `Max ${r.maxPositionPct}% per position · stop-loss at −${r.stopLossPct}%`;
+  if (r) $('fl-rules').textContent = `Max ${r.maxPositionPct}% per position · sells when the trader sells`;
 
   const n = coins?.length ?? 0;
   $('circuit-status').textContent = !coins || !pnl ? 'Live totals are unavailable right now. See the PnL page.' : n
