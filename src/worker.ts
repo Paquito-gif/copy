@@ -88,8 +88,12 @@ async function apiQuotes(env: Env) {
 
 async function apiConfig(env: Env) {
   const s = settings(env);
-  const cfg = await checkFloatConfig(new Rpc(env.RPC_URL)).catch((e) => ({ error: (e as Error).message }));
+  const [cfg, st] = await Promise.all([
+    checkFloatConfig(new Rpc(env.RPC_URL)).catch((e) => ({ error: (e as Error).message })),
+    engineState(env).catch(() => null),
+  ]);
   return {
+    engine: { running: !!st?.running, dryRun: st?.dryRun ?? true, state: !st?.running ? 'paused' : st.dryRun ? 'simulation' : 'live' },
     siteName: s.siteName,
     feeReceiver: s.feeReceiver,
     tiers: FEE_TIERS.map((t) => {

@@ -1,5 +1,5 @@
 /* global solanaWeb3 */
-import { $, api, el, short, fmt, walletState, connectWallet } from './common.js';
+import { $, api, el, fmt, walletState, connectWallet, config } from './common.js';
 
 let imageData = null, cfg = null, quotes = [], pending = null, tickerTaken = false, tickerTimer = null, filter = 'all';
 const isCrypto = (q) => q.symbol === 'SOL' || q.symbol === 'USDC';
@@ -16,6 +16,8 @@ function preview() {
   $('pv-pair').textContent = q ? q.symbol : '–';
   const tier = cfg?.tiers?.find((x) => String(x.tier) === $('tier').value);
   $('pv-tier').textContent = tier?.label?.replace(/\s/g, '').replace(',', '.') ?? '–';
+  $('mb-ticker').textContent = $('pv-ticker').textContent;
+  $('mb-meta').textContent = `${q ? q.symbol : '–'} pair · ${$('pv-tier').textContent} fee`;
 }
 
 // ---------- validation ----------
@@ -112,11 +114,27 @@ function stage(name) {
   $('pv-sim-row').hidden = name === 'form';
   for (const n of $('form').querySelectorAll('input, textarea, button')) n.disabled = name !== 'form';
   ({ sign: $('sign'), done: $('dn-raydium') })[name]?.focus({ preventScroll: true });
+  if (name !== 'form') document.querySelector('.review-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  mobileBar();
 }
+
+// ---------- mobile: keep the summary and the button in reach ----------
+let reviewVisible = false;
+const mobileBar = () => {
+  const wide = matchMedia('(min-width: 941px)').matches;
+  $('mbar').hidden = wide || reviewVisible || $('step-form').hidden;
+};
+new IntersectionObserver(([e]) => { reviewVisible = e.isIntersecting; mobileBar(); }).observe(document.querySelector('.review-card'));
+matchMedia('(min-width: 941px)').addEventListener('change', mobileBar);
+
+$('pv-copy').addEventListener('click', async () => {
+  try { await navigator.clipboard.writeText(cfg.feeReceiver); $('pv-copy').textContent = 'Copied'; setTimeout(() => { $('pv-copy').textContent = 'Copy address'; }, 1800); }
+  catch { const r = document.createRange(); r.selectNodeContents($('pv-receiver')); getSelection().removeAllRanges(); getSelection().addRange(r); }
+});
 
 $('form').addEventListener('submit', async (e) => {
   e.preventDefault();
-  if (!validate()) { status('Fix the highlighted fields.', 'err'); return; }
+  if (!validate()) { status('Some fields need attention: the first one is selected above.', 'err'); return; }
   const btn = $('submit'); btn.disabled = true; btn.setAttribute('aria-busy', 'true');
   try {
     if (!walletState.address && !(await connectWallet().catch(() => false))) { status(noWallet(), 'err'); return; }
@@ -193,9 +211,9 @@ function confetti() {
 // ---------- load ----------
 (async () => {
   try {
-    cfg = await api('/api/config');
-    $('pv-receiver').textContent = short(cfg.feeReceiver);
-    $('pv-receiver').href = `https://solscan.io/account/${cfg.feeReceiver}`;
+    cfg = await config();
+    $('pv-receiver').textContent = cfg.feeReceiver;
+    $('pv-solscan').href = `https://solscan.io/account/${cfg.feeReceiver}`;
     $('tiers').replaceChildren(...cfg.tiers.map((t) => el('button', { type: 'button', role: 'radio', 'aria-checked': 'false', 'data-tier': t.tier, onclick: () => selectTier(t.tier) }, t.label.replace(/\s/g, '').replace(',', '.'))));
     selectTier(0);
     if (cfg.float?.error) status(`Float isn't accepting launches right now: ${cfg.float.error}`, 'err');

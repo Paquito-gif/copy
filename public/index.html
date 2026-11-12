@@ -10,91 +10,82 @@
 <main class="wrap">
   <section class="hero2">
     <div class="hero2__copy">
-      <span class="pill"><span class="live" aria-hidden="true"></span>Built on Float · Raydium LaunchLab</span>
-      <h1>Launch a coin. Its fees <em>copy FOMO's #1</em> trader.</h1>
-      <p class="hero__lead">Every coin launched here sends its creator fees to one public wallet. The wallet mirrors FOMO's top trader, then buys back and burns the coins with the profits.</p>
+      <h1>Launch a coin. Its fees copy FOMO's #1 trader.</h1>
+      <p class="hero__lead">Every coin launched here sends its creator fees to one public wallet. That wallet mirrors the top trader on FOMO's leaderboard, then spends <span id="hero-burn">80%</span> of its profits buying back and burning the coins.</p>
       <div class="hero__ctas">
         <a class="btn" href="/launch">Launch a coin <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
-        <a class="btn btn--ghost" href="/leaderboard">View leaderboard</a>
+        <a class="btn btn--ghost" href="/leaderboard">See the leaderboard</a>
       </div>
-      <dl class="facts">
-        <div><dt>Creator share</dt><dd id="f-share">5%</dd></div>
-        <div><dt>Leader re-check</dt><dd>Every 5h</dd></div>
-        <div><dt>Profits burned</dt><dd id="f-burn">80%</dd></div>
+    </div>
+
+    <article class="card target" aria-labelledby="tg-name">
+      <div class="target__head">
+        <span class="avatar avatar--lg" id="tg-avatar" aria-hidden="true">?</span>
+        <div class="target__who">
+          <h2 class="target__name" id="tg-name">FOMO #1</h2>
+          <span id="tg-meta">Loading the leaderboard…</span>
+        </div>
+        <span id="tg-chip"></span>
+      </div>
+      <div class="target__pnl">
+        <b id="tg-pnl" class="up">–</b>
+        <span id="tg-window">24h PnL on FOMO</span>
+      </div>
+      <dl class="target__grid">
+        <div><dt>Volume</dt><dd id="tg-vol">–</dd></div>
+        <div><dt>Trades</dt><dd id="tg-trades">–</dd></div>
+        <div><dt>Holding</dt><dd id="tg-holds">–</dd></div>
       </dl>
-    </div>
-
-    <figure class="card flow" aria-label="How a coin's fees flow">
-      <div class="flow__node">
-        <span class="flow__icons" id="fl-icons" aria-hidden="true"></span>
-        <div><b>Your coin launches on Float</b><span>Paired with SOL, USDC or a tokenized stock</span></div>
-      </div>
-      <div class="flow__link"><span class="flow__tag"><span id="fl-share">5%</span> of Float's fee</span></div>
-      <div class="flow__node">
-        <span class="flow__badge" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h13v4"/><path d="M3 7v11a2 2 0 0 0 2 2h15V9H5a2 2 0 0 1-2-2z"/><circle cx="16" cy="14.5" r="1.3"/></svg></span>
-        <div><b>Public wallet</b><span class="mono" id="fl-wallet">–</span></div>
-        <span class="flow__value" id="fl-balance">–</span>
-      </div>
-      <div class="flow__link"><span class="flow__tag">copies every trade</span></div>
-      <div class="flow__node flow__node--hl">
-        <span class="avatar avatar--sm" id="fl-avatar" aria-hidden="true">?</span>
-        <div><b id="fl-name">FOMO #1</b><span id="fl-meta">Loading the leaderboard…</span></div>
-        <span class="flow__value up" id="fl-pnl">–</span>
-      </div>
-      <div class="flow__link"><span class="flow__tag"><span id="fl-burn">80%</span> of profits</span></div>
-      <div class="flow__node">
-        <span class="flow__badge flow__badge--burn" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22c4 0 7-2.7 7-6.6 0-4.4-4.2-6.4-5-11.4-2.6 1.8-4.2 4.5-4.2 7.2-1-.8-1.6-2-1.8-3.2C6.6 9.6 5 12.3 5 15.4 5 19.3 8 22 12 22z"/></svg></span>
-        <div><b>Buyback &amp; burn</b><span>Each coin, in proportion to its fees</span></div>
-        <span class="flow__value" id="fl-burned">–</span>
-      </div>
-    </figure>
+      <p class="target__addr">Wallet <a class="mono" id="tg-addr" target="_blank" rel="noopener">–</a></p>
+      <p class="target__foot" id="tg-foot">The pick is re-checked every 5 hours.</p>
+    </article>
   </section>
 
-  <section class="section" style="padding-top:28px">
-    <div class="stats">
-      <div class="card stat" data-reveal><span class="label">Fees received</span><b id="st-fees">0.000</b><small>SOL in the public wallet</small></div>
-      <div class="card stat" data-reveal><span class="label">Copy-trade PnL</span><b id="st-pnl">0.000</b><small>SOL realized</small></div>
-      <div class="card stat" data-reveal><span class="label">Bought back &amp; burned</span><b id="st-burn">0.000</b><small>SOL</small></div>
-      <div class="card stat" data-reveal><span class="label">Coins launched</span><b id="st-coins">0</b><small id="st-engine">engine</small></div>
+  <section class="section circuit" aria-labelledby="circuit-h">
+    <div class="head">
+      <h2 id="circuit-h">Where your coin's fees go</h2>
+      <p>Read live from the Float program and the public wallet. Every trade, buyback and burn is a Solana transaction you can check.</p>
     </div>
-  </section>
-
-  <section class="section" id="how" style="padding-top:0">
-    <div class="head" data-reveal>
-      <span class="label">How it works</span>
-      <h2>From fees to burns in three steps</h2>
-      <p>Everything runs through one public wallet. Every copied trade, buyback and burn has its own transaction on Solana.</p>
-    </div>
-    <div class="steps">
-      <article class="card step" data-reveal><span class="step__n">1</span><h3>You launch on Float</h3><p>Image, name, ticker and a pair: SOL, USDC or a tokenized stock. You sign from your wallet after a full simulation.</p></article>
-      <article class="card step" data-reveal><span class="step__n">2</span><h3>Fees copy FOMO's #1</h3><p>The creator share lands in the public wallet, which mirrors FOMO's top trader. The leader is re-checked every 5 hours.</p></article>
-      <article class="card step" data-reveal><span class="step__n">3</span><h3>Profits buy back and burn</h3><p><b id="bb-pct">80%</b> of realized profits buy back each coin in proportion to the fees it generated, then burn it.</p></article>
+    <div class="card circuit__card">
+      <ol class="flow">
+        <li class="flow__node">
+          <span class="flow__icons" id="fl-icons" aria-hidden="true"></span>
+          <b>Your coin trades on Float</b>
+          <span>Paired with SOL, USDC or a tokenized stock</span>
+        </li>
+        <li class="flow__node">
+          <span class="flow__badge" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h13v4"/><path d="M3 7v11a2 2 0 0 0 2 2h15V9H5a2 2 0 0 1-2-2z"/><circle cx="16" cy="14.5" r="1.3"/></svg></span>
+          <b><span id="fl-share">5%</span> of Float's fee lands in the public wallet</b>
+          <span><a class="mono" id="fl-wallet" target="_blank" rel="noopener">–</a> · <span id="fl-balance">–</span></span>
+        </li>
+        <li class="flow__node">
+          <span class="avatar avatar--sm" id="fl-avatar" aria-hidden="true">?</span>
+          <b>The wallet copies <span id="fl-name">FOMO's #1</span></b>
+          <span id="fl-rules">Position and loss limits on every copy</span>
+        </li>
+        <li class="flow__node">
+          <span class="flow__badge flow__badge--burn" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22c4 0 7-2.7 7-6.6 0-4.4-4.2-6.4-5-11.4-2.6 1.8-4.2 4.5-4.2 7.2-1-.8-1.6-2-1.8-3.2C6.6 9.6 5 12.3 5 15.4 5 19.3 8 22 12 22z"/></svg></span>
+          <b><span id="fl-burn">80%</span> of profits buy back and burn</b>
+          <span>Each coin in proportion to its fees · <span id="fl-burned">–</span> so far</span>
+        </li>
+      </ol>
+      <div class="split">
+        <p class="split__title">The full fee split, from Float's on-chain config</p>
+        <div class="split__bar" id="split-bar" aria-hidden="true"></div>
+        <ul class="split__legend" id="split-legend"></ul>
+      </div>
+      <p class="circuit__status" id="circuit-status"></p>
     </div>
   </section>
 
-  <section class="section" style="padding-top:0">
-    <div class="card split" data-reveal>
-      <div class="head" style="margin:0"><span class="label">Fee split</span><h3 style="font-size:20px">Where your coin's trading fees go</h3><p style="font-size:14px">Read live from the Float program's on-chain config.</p></div>
-      <div class="split__bar" id="split-bar" aria-hidden="true"></div>
-      <ul class="split__legend" id="split-legend"></ul>
-    </div>
-  </section>
-
-  <section class="section" id="faq" style="padding-top:0">
-    <div class="head" data-reveal><span class="label">FAQ</span><h2>Questions</h2></div>
-    <div class="faq" data-reveal>
+  <section class="section" id="faq" aria-labelledby="faq-h" style="padding-top:0">
+    <div class="head"><h2 id="faq-h">Questions</h2></div>
+    <div class="faq">
       <details><summary>Who receives my coin's fees?</summary><p>The creator share, 5% of Float's fee, goes to the launchpad's public wallet. Your coin's holders keep their own share, paid by Float in the pair asset.</p></details>
-      <details><summary>What is the FOMO leaderboard?</summary><p>FOMO is a Solana trading app that ranks its traders by PnL. The engine copies the #1 wallet, with position-size and loss limits.</p></details>
+      <details><summary>What is the FOMO leaderboard?</summary><p>FOMO is a Solana trading app that ranks its traders by PnL. The engine copies the #1 trader that has a public Solana wallet, with position-size and loss limits.</p></details>
       <details><summary>Can the copy-trading wallet lose money?</summary><p>Yes. It always enters after the trader it copies, at a worse price. Limits cut losses, but no profit is guaranteed.</p></details>
       <details><summary>Which coins get bought back?</summary><p>Every coin launched here, in proportion to the fees it generated. Bought-back coins are burned, and every burn shows up on the PnL page.</p></details>
       <details><summary>Is this an official Float site?</summary><p>No. It's an independent interface that calls the Float program. The coins are real Float coins on Raydium LaunchLab.</p></details>
-    </div>
-  </section>
-
-  <section style="padding-bottom:24px">
-    <div class="card cta" data-reveal>
-      <div><h2>Your coin, our trades, its burns</h2><p>One minute, one signature. Fees go to the public wallet.</p></div>
-      <a class="btn" href="/launch">Launch a coin</a>
     </div>
   </section>
 </main>

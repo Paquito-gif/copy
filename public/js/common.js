@@ -1,4 +1,4 @@
-/* Shared by every page: API, formatting, live ticker, motion helpers, wallet. */
+/* Shared by every page: API, formatting, engine state, motion helpers, wallet. */
 const motionOK = !matchMedia('(prefers-reduced-motion: reduce)').matches;
 if (motionOK) document.documentElement.classList.add('anim');
 
@@ -48,6 +48,23 @@ export async function api(path, body) {
   return data;
 }
 
+/** Site config, fetched once per page. */
+let cfgP;
+export const config = () => (cfgP ??= api('/api/config'));
+
+/** One engine state for the whole site: paused, simulation or live. */
+export const ENGINE_TEXT = { paused: 'Engine paused', simulation: 'Simulating', live: 'Copying live' };
+export async function engineState() {
+  try { return (await config()).engine?.state ?? 'paused'; } catch { return 'paused'; }
+}
+/** Chip for the copy target: "Copying" only when the engine actually runs. */
+export function targetChip(state, small = false) {
+  const on = state !== 'paused';
+  return el('span', { class: `chip ${on ? 'chip--up' : ''} ${small ? 'chip--xs' : ''}` },
+    el('span', { class: `live ${state === 'live' ? '' : 'live--off'}`, 'aria-hidden': 'true' }),
+    state === 'live' ? 'Copying' : state === 'simulation' ? 'Copying (simulated)' : 'Next to copy');
+}
+
 /** FOMO profile picture when available, the initial otherwise. */
 export function avatar(url, name, cls = '') {
   const fallback = () => el('span', { class: `avatar ${cls}`, 'aria-hidden': 'true' }, (name || '?').replace('@', '').slice(0, 1).toUpperCase());
@@ -82,26 +99,6 @@ export function reveal(root = document) {
   }, { rootMargin: '0px 0px -6% 0px' });
   items.forEach((n, i) => { if (!n.style.getPropertyValue('--delay')) n.style.setProperty('--delay', `${(i % 4) * 60}ms`); io.observe(n); });
   setTimeout(() => items.forEach((n) => n.classList.add('is-in')), 4000); // safety net for previews and captures
-}
-
-/** Live ticker: the FOMO top 10. */
-async function loadTicker() {
-  const track = $('tape-track');
-  if (!track) return;
-  try {
-    const lb = await api('/api/leaderboard?window=24h');
-    const items = lb.traders.slice(0, 10).map((t) => el('span', { class: 'ticker__item' },
-      el('span', {}, `#${t.rank}`),
-      t.avatarUrl ? el('img', { src: t.avatarUrl, alt: '', loading: 'lazy', referrerpolicy: 'no-referrer' }) : null,
-      el('b', {}, `@${t.handle}`),
-      el('span', { class: 'mono' }, usd(t.pnlUsd)),
-      t.copied ? el('span', { class: 'chip chip--up', style: 'height:20px;font-size:11px' }, 'Copying') : null));
-    if (!items.length) return;
-    track.replaceChildren(...items, ...items.map((n) => n.cloneNode(true)));
-    track.parentElement.setAttribute('aria-label', `FOMO 24h leaderboard: ${lb.traders.slice(0, 3).map((t) => `#${t.rank} @${t.handle} ${usd(t.pnlUsd)}`).join(', ')}`);
-  } catch {
-    track.parentElement.hidden = true;
-  }
 }
 
 // ---------- wallet ----------
@@ -141,6 +138,16 @@ function initWallet() {
   }).catch(() => {});
 }
 
+/** Header status: the engine state, not a decorative network pill. */
+async function initEngineStatus() {
+  const n = $('engine-status');
+  if (!n) return;
+  const state = await engineState();
+  n.dataset.state = state;
+  n.lastChild.textContent = ENGINE_TEXT[state];
+  n.title = state === 'paused' ? 'The copy-trading engine is paused. Fees still accrue to the public wallet.' : '';
+}
+
 // ---------- navigation: active page + mobile menu ----------
 function markActive() {
   const path = location.pathname.replace(/\/$/, '') || '/';
@@ -159,6 +166,6 @@ function initMenu() {
 
 markActive();
 initMenu();
+initEngineStatus();
 initWallet();
-loadTicker();
 reveal();

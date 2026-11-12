@@ -11,12 +11,9 @@
       <a href="/pnl">PnL</a>
     </nav>
     <div class="top__actions">
-      <span class="pill pill--net"><span class="live" aria-hidden="true"></span>Solana</span>
+      <a class="pill pill--net" id="engine-status" href="/pnl" data-state="paused"><span class="live live--off" aria-hidden="true"></span><span>Engine paused</span></a>
       <button class="wallet-btn" id="wallet-btn" type="button"><span class="dot" aria-hidden="true"></span><span>Connect<span class="w-long"> Wallet</span></span></button>
       <button class="menu-btn" id="menu-btn" type="button" aria-expanded="false" aria-controls="nav" aria-label="Open menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
     </div>
   </div>
 </header>
-<div class="ticker" aria-label="Live FOMO leaderboard">
-  <div class="ticker__track" id="tape-track"><span class="ticker__item">Loading the FOMO leaderboard…</span></div>
-</div>
