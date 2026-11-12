@@ -33,6 +33,8 @@ export interface EngineState {
   events: EngineEvent[];
   leader: { current: Leader[]; checkedAt: number; changedAt: number; history: { at: number; handles: string[] }[]; error?: string } | null;
   lastSig: Record<string, string>;
+  /** `${trader}:${mint}` → signature of the trader's first buy; cleared once the trader has sold everything */
+  cycles: Record<string, string>;
   lastMonitor: number;
   lastError?: string;
 }
@@ -40,7 +42,7 @@ export interface EngineState {
 const empty = (): EngineState => ({
   running: false, positions: {}, realizedPnlSol: 0, buybackBucketSol: 0, totalFeesSol: 0, coins: {},
   dayStart: 0, dayStartCapitalSol: 0, dayRealizedSol: 0, dailyPaused: false, events: [], leader: null,
-  lastSig: {}, lastMonitor: 0,
+  lastSig: {}, cycles: {}, lastMonitor: 0,
 });
 
 export class CopyEngine extends DurableObject<Env> {
@@ -58,6 +60,7 @@ export class CopyEngine extends DurableObject<Env> {
   // ---------- état ----------
   private async state(): Promise<EngineState> {
     if (!this.st) this.st = { ...empty(), ...((await this.ctx.storage.get<EngineState>('state')) ?? {}) };
+    this.st.cycles ??= {};
     return this.st;
   }
   private async save() { if (this.st) await this.ctx.storage.put('state', this.st); }
@@ -196,16 +199,22 @@ export class CopyEngine extends DurableObject<Env> {
         const s = detectSwap(tx, wallet, (m) => own.has(m));
         if (!s) continue;
         await this.record('seen', { trader: wallet, side: s.side, mint: s.mint, sig: sig.signature });
+        const cycle = `${wallet}:${s.mint}`;
         if (s.side === 'buy') {
           if (!active.includes(wallet)) continue;
+          // only the trader's FIRST buy of a coin counts; later buys (adds, duplicates) are ignored until he has sold it all
+          if (st.cycles[cycle]) { await this.record('skip', { mint: s.mint, reason: 'not the first buy of this coin' }); continue; }
+          st.cycles[cycle] = sig.signature;
           // only memecoins launched on pump.fun or Raydium LaunchLab; everything else is ignored
           const origin = await this.origin(s.mint);
           if (origin === 'other') { await this.record('skip', { mint: s.mint, reason: 'not a pump.fun or Raydium LaunchLab memecoin' }); continue; }
           await this.copyBuy(s);
         }
         else {
+          // every sell is mirrored, in the same proportion
           const p = st.positions[s.mint];
-          if (p && p.trader === wallet) await this.sellPosition(p, s.soldFraction, 'trader vend');
+          if (p && p.trader === wallet) await this.sellPosition(p, s.soldFraction, 'trader sells');
+          if (s.soldFraction >= 0.99) delete st.cycles[cycle]; // fully out: his next buy is a new first buy
         }
       }
     }
@@ -272,7 +281,7 @@ export class CopyEngine extends DurableObject<Env> {
 
   private async sellPosition(p: Position, fraction: number, reason: string) {
     const st = await this.state();
-    if (fraction > 0.9) fraction = 1;
+    if (fraction >= 0.99) fraction = 1; // only round dust: a 90% sell stays a 90% sell
     const amount = fraction === 1 ? BigInt(p.amountRaw) : (BigInt(p.amountRaw) * BigInt(Math.floor(fraction * 10_000))) / 10_000n;
     if (amount <= 0n) return;
     const q = await getQuote(this.s, p.mint, SOL_MINT, amount);
