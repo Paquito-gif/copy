@@ -1,14 +1,15 @@
 {
   "name": "copy-launch",
   "version": "1.0.0",
-  "description": "Launchpad sur Float : les creator fees copy-tradent le top FOMO, les profits rachètent et brûlent les coins",
+  "description": "Launchpad sur Float : les creator fees copy-tradent le top FOMO, les profits rach\u00e8tent et br\u00fblent les coins",
   "scripts": {
     "verify:float": "tsx scripts/verify-float.ts",
     "test": "tsx test/detect.test.ts",
-    "typecheck": "tsc --noEmit",
-    "dev": "wrangler dev",
-    "deploy": "wrangler deploy",
-    "db:migrate": "wrangler d1 migrations apply copy-launch --remote"
+    "typecheck": "npm run build:site && tsc --noEmit",
+    "dev": "npm run build:site && wrangler dev",
+    "deploy": "npm run build:site && wrangler deploy",
+    "db:migrate": "wrangler d1 migrations apply copy-launch --remote",
+    "build:site": "node scripts/build-site.mjs"
   },
   "dependencies": {
     "@solana/spl-token": "^0.4.15",

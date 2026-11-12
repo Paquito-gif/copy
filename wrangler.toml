@@ -3,22 +3,18 @@ main = "src/worker.ts"
 compatibility_date = "2025-07-18"
 compatibility_flags = ["nodejs_compat"]
 
-# Site statique (public/) ; tout le reste passe par le Worker (/api, /m, /img)
-[assets]
-directory = "./public"
-binding = "ASSETS"
-not_found_handling = "single-page-application"
-run_worker_first = ["/api/*", "/m/*", "/img/*"]
+# Le site (public/) est intégré au Worker par scripts/build-site.mjs (npm run build:site)
 
 [[d1_databases]]
 binding = "DB"
 database_name = "copy-launch"
-database_id = "REMPLACER_PAR_L_ID_D1"   # wrangler d1 create copy-launch
+database_id = "0b79f7ec-02c6-457f-b7de-bf973cb8007f"
 migrations_dir = "migrations"
 
-[[r2_buckets]]
+# Images et fiches des coins (Workers KV ; valeurs jusqu'à 25 Mo, images limitées à 1 Mo)
+[[kv_namespaces]]
 binding = "FILES"
-bucket_name = "copy-launch-files"       # wrangler r2 bucket create copy-launch-files
+id = "2cb5275dfb1e4a70a3b0ee37397ff9a6"
 
 [[durable_objects.bindings]]
 name = "ENGINE"

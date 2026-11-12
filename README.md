@@ -16,9 +16,9 @@ utilisateur ──signe──► launch (programme Float) ── fee_receiver �
 ## Architecture Cloudflare
 | Brique | Service | Fichier |
 |---|---|---|
-| Site | Workers Static Assets | `public/` |
+| Site | intégré au Worker à la build (`scripts/build-site.mjs`) | `public/` |
 | API : lancement, paires, stats, trader | Worker | `src/worker.ts` |
-| Images et fiches des coins (`/img`, `/m`) | R2 `copy-launch-files` | `src/worker.ts` |
+| Images et fiches des coins (`/img`, `/m`) | Workers KV `copy-launch-files` | `src/worker.ts` |
 | Registre des coins | D1 `copy-launch` | `migrations/` |
 | Moteur de copy-trading | Durable Object `CopyEngine` (alarmes) | `src/engine.ts` |
 | Scan du n°1 FOMO (5 h), conversion des fees (1 h) | Cron Triggers | `wrangler.toml` |
@@ -30,10 +30,10 @@ Le Worker ne signe jamais rien : l'utilisateur signe son lancement dans son wall
 ```bash
 npm install
 npx wrangler login
-npx wrangler d1 create copy-launch                 # copier l'id dans wrangler.toml (database_id)
-npx wrangler r2 bucket create copy-launch-files
+npx wrangler d1 create copy-launch                 # copier l'id dans wrangler.toml (database_id) — déjà fait pour ce compte
+npx wrangler kv namespace create copy-launch-files   # copier l'id dans wrangler.toml
 npm run db:migrate
-npx wrangler secret put RPC_URL                    # RPC payant conseillé (Helius, Triton…)
+npx wrangler secret put RPC_URL                    # un ou plusieurs RPC séparés par des virgules ; RPC avec clé conseillé (Helius…)
 npx wrangler secret put BOT_PRIVATE_KEY            # clé base58 du wallet FEE_RECEIVER
 npx wrangler secret put ADMIN_TOKEN                # mot de passe pour piloter le moteur
 npm run deploy
@@ -42,6 +42,10 @@ Ensuite :
 1. Dans `wrangler.toml`, `FEE_RECEIVER` doit être l'adresse du wallet dont tu as mis la clé.
 2. Ajoute ton domaine au Worker (Settings → Domains & Routes).
 3. Si tu sers le site sur un domaine précis, mets `PUBLIC_URL` dans `[vars]` : c'est l'adresse écrite dans les fiches des coins.
+
+Déployé actuellement sur https://copy-launch.paquito-dev.workers.dev
+
+**RPC depuis Cloudflare** : les RPC publics gratuits bloquent ou limitent fortement les serveurs Cloudflare (`api.mainnet-beta.solana.com` les bloque, publicnode répond souvent 429). Le site s'en sort grâce aux caches (la liste des paires est gardée dans KV). Mais le moteur de copy-trading interroge Solana toutes les 10 s : il lui faut un RPC avec clé (Helius a une offre gratuite) avant d'être démarré.
 
 ## Piloter le moteur (en pause par défaut)
 ```bash

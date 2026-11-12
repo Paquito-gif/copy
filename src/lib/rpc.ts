@@ -5,13 +5,21 @@
 export interface AccountInfo { owner: string; lamports: number; data: Uint8Array }
 
 export class Rpc {
-  constructor(private url: string) {}
+  private urls: string[];
+  private i = 0;
+  /** `url` peut lister plusieurs RPC séparés par des virgules : on passe au suivant en cas de refus (429, 5xx). */
+  constructor(url: string) {
+    this.urls = url.split(',').map((u) => u.trim()).filter(Boolean);
+    if (!this.urls.length) throw new Error('RPC_URL manquant');
+  }
 
   async call<T>(method: string, params: unknown[] = []): Promise<T> {
     let lastErr: unknown;
-    for (let attempt = 0; attempt < 3; attempt++) {
+    const tries = Math.max(3, this.urls.length * 2);
+    for (let attempt = 0; attempt < tries; attempt++) {
+      const url = this.urls[(this.i + attempt) % this.urls.length];
       try {
-        const r = await fetch(this.url, {
+        const r = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
@@ -19,11 +27,12 @@ export class Rpc {
         if (r.status === 429 || r.status >= 500) throw new Error(`RPC ${method} HTTP ${r.status}`);
         const j = (await r.json()) as { result?: T; error?: { message: string } };
         if (j.error) throw new Error(`RPC ${method}: ${j.error.message}`);
+        this.i = (this.i + attempt) % this.urls.length; // on garde le RPC qui a répondu
         return j.result as T;
       } catch (e) {
         lastErr = e;
-        if (!/HTTP (429|5\d\d)|fetch/i.test(String(e))) break;
-        await new Promise((res) => setTimeout(res, 400 * 2 ** attempt));
+        if (!/HTTP (429|403|5\d\d)|fetch|JSON|blocked|rate/i.test(String(e))) break;
+        await new Promise((res) => setTimeout(res, 250 * 2 ** Math.min(attempt, 3)));
       }
     }
     throw lastErr;
@@ -39,12 +48,17 @@ export class Rpc {
     return Rpc.decode(r.value);
   }
 
-  /** Par paquets de 10 (limite des RPC publics). */
+  /** Par paquets de 10 (limite des RPC publics) ; si la lecture groupée est refusée, compte par compte. */
   async getMultipleAccounts(addresses: string[]): Promise<(AccountInfo | null)[]> {
     const out: (AccountInfo | null)[] = [];
     for (let i = 0; i < addresses.length; i += 10) {
-      const r = await this.call<{ value: any[] }>('getMultipleAccounts', [addresses.slice(i, i + 10), { encoding: 'base64', commitment: 'confirmed' }]);
-      out.push(...r.value.map(Rpc.decode));
+      const chunk = addresses.slice(i, i + 10);
+      try {
+        const r = await this.call<{ value: any[] }>('getMultipleAccounts', [chunk, { encoding: 'base64', commitment: 'confirmed' }]);
+        out.push(...r.value.map(Rpc.decode));
+      } catch {
+        for (const a of chunk) out.push(await this.getAccountInfo(a));
+      }
     }
     return out;
   }

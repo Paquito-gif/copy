@@ -9,3 +9,4 @@ secrets
 state.json
 .dev.vars
 .wrangler
+src/site.gen.ts

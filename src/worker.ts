@@ -1,10 +1,11 @@
 /**
- * Worker principal : site (assets statiques), API de lancement Float, métadonnées (R2),
+ * Worker principal : site (assets statiques), API de lancement Float, métadonnées (KV),
  * registre des coins (D1), tâches planifiées (classement FOMO toutes les 5 h, fees toutes les heures).
  * Le Worker ne signe jamais rien : l'utilisateur signe le lancement dans son wallet.
  */
 import { ComputeBudgetProgram, PublicKey, TransactionMessage, VersionedTransaction } from '@solana/web3.js';
 import { type Env, settings, SOL_MINT, USDC_MINT } from './lib/env.js';
+import { SITE } from './site.gen.js';
 import { Rpc, LAMPORTS_PER_SOL, b64 } from './lib/rpc.js';
 import {
   buildLaunchIx, checkFloatConfig, isQuoteEnabled, isTickerTaken, readLaunchState, validateLaunch, FEE_TIERS, derive,
@@ -47,24 +48,41 @@ async function cached<T>(key: string, ttl: number, fn: () => Promise<T>): Promis
 
 // ---------- API ----------
 async function apiQuotes(env: Env) {
-  return cached('quotes-v1', 3600, async () => {
-    const rpc = new Rpc(env.RPC_URL);
-    const list: { mint: string; symbol: string; name: string; icon?: string }[] = [
-      { mint: SOL_MINT, symbol: 'SOL', name: 'Solana' },
-      { mint: USDC_MINT, symbol: 'USDC', name: 'USD Coin' },
-    ];
-    try {
-      for (const q of list) {
-        const [t] = (await (await fetch(`https://lite-api.jup.ag/tokens/v2/search?query=${q.mint}`)).json()) as { icon?: string }[];
-        if (t?.icon) q.icon = t.icon;
-      }
-      const tokens = (await (await fetch('https://lite-api.jup.ag/tokens/v2/search?query=xStock')).json()) as { id: string; symbol: string; name: string; icon?: string; tags?: string[] }[];
-      const stocks = tokens.filter((t) => t.tags?.includes('xstocks'));
-      const accs = await rpc.getMultipleAccounts(stocks.map((t) => derive.quoteAsset(new PublicKey(t.id)).toBase58()));
-      stocks.forEach((t, i) => { if (accs[i]) list.push({ mint: t.id, symbol: t.symbol, name: t.name, icon: t.icon }); });
-    } catch { /* liste réduite à SOL et USDC */ }
-    return list;
-  });
+  const key = 'quotes-v2';
+  const cache = caches.default;
+  const req = new Request(`https://cache.internal/${key}`);
+  const hit = await cache.match(req);
+  if (hit) return hit.json() as Promise<{ mint: string; symbol: string; name: string; icon?: string }[]>;
+
+  const rpc = new Rpc(env.RPC_URL);
+  const list: { mint: string; symbol: string; name: string; icon?: string }[] = [
+    { mint: SOL_MINT, symbol: 'SOL', name: 'Solana' },
+    { mint: USDC_MINT, symbol: 'USDC', name: 'USD Coin' },
+  ];
+  const jup = async (q: string) => {
+    const r = await fetch(`https://lite-api.jup.ag/tokens/v2/search?query=${encodeURIComponent(q)}`, { headers: { Accept: 'application/json' } });
+    if (!r.ok) throw new Error(`Jupiter tokens HTTP ${r.status}`);
+    return (await r.json()) as { id: string; symbol: string; name: string; icon?: string; tags?: string[] }[];
+  };
+  let complete = false;
+  try {
+    for (const q of list) { const [t] = await jup(q.mint); if (t?.icon) q.icon = t.icon; }
+    const stocks = (await jup('xStock')).filter((t) => t.tags?.includes('xstocks'));
+    const accs = await rpc.getMultipleAccounts(stocks.map((t) => derive.quoteAsset(new PublicKey(t.id)).toBase58()));
+    stocks.forEach((t, i) => { if (accs[i]) list.push({ mint: t.id, symbol: t.symbol, name: t.name, icon: t.icon }); });
+    complete = true;
+  } catch (e) {
+    console.error('Liste des paires incomplète :', (e as Error).message);
+  }
+  let result = list;
+  if (complete) await env.FILES.put('cache/quotes.json', JSON.stringify(list));
+  else {
+    // RPC saturé : on ressert la dernière liste complète connue
+    const last = await env.FILES.get<typeof list>('cache/quotes.json', 'json');
+    if (last?.length) { result = last; complete = true; }
+  }
+  await cache.put(req, new Response(JSON.stringify(result), { headers: { 'Cache-Control': `max-age=${complete ? 3600 : 60}` } }));
+  return result;
 }
 
 async function apiConfig(env: Env) {
@@ -94,7 +112,7 @@ async function apiMetadata(env: Env, origin: string, body: any) {
 
   const id = randomId();
   const imgFile = `${id}.${IMG_TYPES[m[1]]}`;
-  await env.FILES.put(`img/${imgFile}`, img, { httpMetadata: { contentType: m[1], cacheControl: 'public, max-age=31536000, immutable' } });
+  await env.FILES.put(`img/${imgFile}`, img, { metadata: { contentType: m[1] } });
   const twitter = safeUrl(body.twitter), telegram = safeUrl(body.telegram), website = safeUrl(body.website);
   const meta = {
     name, symbol: ticker.toUpperCase(), description: clean(body.description, 500), image: `${origin}/img/${imgFile}`,
@@ -102,7 +120,7 @@ async function apiMetadata(env: Env, origin: string, body: any) {
     extensions: { ...(twitter && { twitter }), ...(telegram && { telegram }), ...(website && { website }) },
     createdOn: origin,
   };
-  await env.FILES.put(`m/${id}.json`, JSON.stringify(meta), { httpMetadata: { contentType: 'application/json', cacheControl: 'public, max-age=31536000, immutable' } });
+  await env.FILES.put(`m/${id}.json`, JSON.stringify(meta), { metadata: { contentType: 'application/json' } });
   return { uri: `${origin}/m/${id}.json`, image: meta.image };
 }
 
@@ -158,8 +176,7 @@ async function apiConfirm(env: Env, origin: string, body: any) {
   if (ls.feeReceiver !== env.FEE_RECEIVER) throw new HttpError(400, 'Ce coin ne reverse pas ses fees à ce launchpad');
 
   const metaId = /\/m\/([\w-]+)\.json$/.exec(clean(body.uri, 200))?.[1];
-  const obj = metaId ? await env.FILES.get(`m/${metaId}.json`) : null;
-  const meta = obj ? ((await obj.json()) as any) : {};
+  const meta = (metaId ? await env.FILES.get(`m/${metaId}.json`, 'json') : null) ?? ({} as any);
   const quotes = await apiQuotes(env);
   await env.DB.prepare(
     `INSERT OR IGNORE INTO coins (mint, name, ticker, image, description, quote_mint, quote_symbol, tier, creator, signature, launched_at)
@@ -255,17 +272,25 @@ export default {
         }
         const file = /^\/(m\/[\w-]+\.json|img\/[\w-]+\.(?:png|jpg|webp|gif))$/.exec(p);
         if (file) {
-          const obj = await env.FILES.get(file[1]);
-          if (!obj) throw new HttpError(404, 'Introuvable');
-          const h = new Headers();
-          obj.writeHttpMetadata(h);
-          h.set('Access-Control-Allow-Origin', '*');
-          h.set('X-Content-Type-Options', 'nosniff');
-          return new Response(obj.body, { headers: h });
+          const { value, metadata } = await env.FILES.getWithMetadata<{ contentType?: string }>(file[1], 'arrayBuffer');
+          if (!value) throw new HttpError(404, 'Introuvable');
+          return new Response(value, { headers: {
+            'Content-Type': metadata?.contentType ?? 'application/octet-stream',
+            'Cache-Control': 'public, max-age=31536000, immutable',
+            'Access-Control-Allow-Origin': '*', 'X-Content-Type-Options': 'nosniff',
+          } });
         }
       }
       if (p.startsWith('/api/')) throw new HttpError(405, 'Méthode non autorisée');
-      return env.ASSETS.fetch(req);
+      const f = SITE[p === '/' ? '/index.html' : p];
+      if (!f || (req.method !== 'GET' && req.method !== 'HEAD')) return new Response('Introuvable', { status: 404 });
+      const etag = `"${f.etag}"`;
+      const headers = {
+        'Content-Type': f.type, ETag: etag, 'X-Content-Type-Options': 'nosniff',
+        'Cache-Control': f.type.startsWith('text/html') ? 'no-cache' : 'public, max-age=3600',
+      };
+      if (req.headers.get('If-None-Match') === etag) return new Response(null, { status: 304, headers });
+      return new Response(req.method === 'HEAD' ? null : f.body, { headers });
     } catch (e) {
       const status = e instanceof HttpError ? e.status : 500;
       if (status === 500) console.error(e);

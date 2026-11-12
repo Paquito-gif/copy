@@ -1,8 +1,7 @@
 /** Bindings et variables du Worker (voir wrangler.toml). Les secrets se posent avec `wrangler secret put`. */
 export interface Env {
-  ASSETS: Fetcher;
   DB: D1Database;
-  FILES: R2Bucket;
+  FILES: KVNamespace;
   ENGINE: DurableObjectNamespace;
 
   // secrets
