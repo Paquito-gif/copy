@@ -145,7 +145,7 @@ async function apiConfig(env: Env) {
     }),
     float: cfg,
     buybackPct: s.buybackPct,
-    rules: { maxPositionPct: s.maxPositionPct, maxOpenPositions: s.maxOpenPositions, stopLossPct: s.stopLossPct, takeProfitPct: s.takeProfitPct, maxDailyLossPct: s.maxDailyLossPct },
+    rules: { maxPositionPct: s.maxPositionPct, maxTradeUsd: s.maxTradeUsd, maxOpenPositions: s.maxOpenPositions, stopLossPct: s.stopLossPct, takeProfitPct: s.takeProfitPct, maxDailyLossPct: s.maxDailyLossPct },
   };
 }
 

@@ -40,3 +40,13 @@ export async function swap(s: Settings, rpc: Rpc, q: Quote, signer: Keypair): Pr
   await rpc.confirm(sig);
   return { sig, outAmount: BigInt(q.outAmount) };
 }
+
+/** Live SOL price in US dollars (Jupiter price API), or null when unavailable. */
+export async function solPriceUsd(): Promise<number | null> {
+  try {
+    const r = await fetch('https://lite-api.jup.ag/price/v3?ids=So11111111111111111111111111111111111111112');
+    const j = (await r.json()) as Record<string, { usdPrice?: number }>;
+    const p = j['So11111111111111111111111111111111111111112']?.usdPrice;
+    return typeof p === 'number' && p > 0 ? p : null;
+  } catch { return null; }
+}

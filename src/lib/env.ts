@@ -24,6 +24,7 @@ export interface Env {
   LEADERBOARD_URL?: string;
   LEADERBOARD_WINDOW?: string;
   MAX_POSITION_PCT?: string;
+  MAX_TRADE_USD?: string;
   MAX_OPEN_POSITIONS?: string;
   MIN_TRADE_SOL?: string;
   STOP_LOSS_PCT?: string;
@@ -57,7 +58,8 @@ export function settings(env: Env) {
     leaderboardUrl: env.LEADERBOARD_URL || 'https://api.fomo-api.com/v1/leaderboard',
     leaderboardWindow: env.LEADERBOARD_WINDOW || '24h',
     fomoApiKey: env.FOMO_API_KEY || '',
-    maxPositionPct: n(env.MAX_POSITION_PCT, 8),
+    maxPositionPct: n(env.MAX_POSITION_PCT, 25),
+    maxTradeUsd: n(env.MAX_TRADE_USD, 100),
     maxOpenPositions: n(env.MAX_OPEN_POSITIONS, 6),
     minTradeSol: n(env.MIN_TRADE_SOL, 0.05),
     stopLossPct: n(env.STOP_LOSS_PCT, 0),   // 0 = off: exits follow the trader

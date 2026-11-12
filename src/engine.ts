@@ -13,7 +13,7 @@ import { createBurnCheckedInstruction, createCloseAccountInstruction, getAssocia
 import bs58 from 'bs58';
 import { type Env, type Settings, settings, SOL_MINT, rpcUrl } from './lib/env.js';
 import { Rpc, LAMPORTS_PER_SOL, b64 } from './lib/rpc.js';
-import { getQuote, impactPct, swap } from './lib/jupiter.js';
+import { getQuote, impactPct, swap, solPriceUsd } from './lib/jupiter.js';
 import { tokenOrigin, type Origin } from './lib/origin.js';
 import { detectSwap, type Swap } from './lib/detect.js';
 import { fetchLeaderboard, type Leader } from './lib/leaderboard.js';
@@ -239,7 +239,10 @@ export class CopyEngine extends DurableObject<Env> {
     if (Object.keys(st.positions).length >= this.s.maxOpenPositions) return;
     const capital = await this.tradingCapitalSol();
     await this.rollDay(capital);
-    const sizeSol = (capital * this.s.maxPositionPct) / 100;
+    // size: a share of the capital, never more than MAX_TRADE_USD
+    const price = await solPriceUsd();
+    if (!price) { await this.record('skip', { mint: s.mint, reason: 'SOL price unavailable, $ cap cannot be enforced' }); return; }
+    const sizeSol = Math.min((capital * this.s.maxPositionPct) / 100, this.s.maxTradeUsd / price);
     if (sizeSol < this.s.minTradeSol) { await this.record('skip', { mint: s.mint, reason: `capital ${capital.toFixed(3)} SOL trop faible` }); return; }
 
     const m = await this.rpc.mintInfo(s.mint).catch(() => null);
@@ -257,7 +260,7 @@ export class CopyEngine extends DurableObject<Env> {
     const { sig, outAmount } = await swap(this.s, this.rpc, q, bot);
     const got = this.s.dryRun ? outAmount : (await this.rpc.tokenBalanceRaw(this.s.feeReceiver, s.mint)) - before;
     st.positions[s.mint] = { mint: s.mint, trader: s.trader, amountRaw: got.toString(), costSol: sizeSol, openedAt: Date.now() };
-    await this.record('buy', { mint: s.mint, trader: s.trader, sol: sizeSol, sig });
+    await this.record('buy', { mint: s.mint, trader: s.trader, sol: sizeSol, usd: Math.round(sizeSol * price * 100) / 100, sig });
   }
 
   private async sellPosition(p: Position, fraction: number, reason: string) {
