@@ -467,7 +467,17 @@ async function apiPnl(env: Env) {
 async function apiAdmin(env: Env, req: Request, body: any) {
   if (!env.ADMIN_TOKEN || !sameSecret(req.headers.get('Authorization') ?? '', `Bearer ${env.ADMIN_TOKEN}`)) throw new HttpError(401, 'Unauthorized');
   const action = String(body.action ?? '');
-  if (!['start', 'pause', 'scan', 'fees'].includes(action)) throw new HttpError(400, 'action: start | pause | scan | fees');
+  if (action === 'rpc') {
+    // health of each configured RPC: host name and latency only, never the URL's key
+    const urls = String(env.RPC_URL ?? '').split(',').map((u) => u.trim()).filter(Boolean);
+    return Promise.all(urls.map(async (u) => {
+      const host = (() => { try { return new URL(u).host; } catch { return 'invalid URL'; } })();
+      const t0 = Date.now();
+      try { const slot = await new Rpc(u).getSlot(); return { host, ok: true, ms: Date.now() - t0, slot }; }
+      catch { return { host, ok: false, ms: Date.now() - t0 }; }
+    }));
+  }
+  if (!['start', 'pause', 'scan', 'fees'].includes(action)) throw new HttpError(400, 'action: start | pause | scan | fees | rpc');
   return engineCall(env, `/${action}`);
 }
 
