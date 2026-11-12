@@ -1,4 +1,4 @@
-import { $, api, el, avatar, usd, ago, short, config, targetChip, countUsd, tilt } from './common.js';
+import { $, api, el, avatar, usd, ago, short, config, targetChip, countUsd, tilt, flash, every, countTo } from './common.js';
 
 const SPLIT = [
   ['creator', 'Public wallet (creator)', '#5b9dff'],
@@ -16,6 +16,21 @@ function nextCheck(now = new Date()) {
   const next = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), h);
   const m = Math.max(1, Math.round((next - now) / 60000));
   return m >= 60 ? `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, '0')}m` : `${m}m`;
+}
+
+let live = null;
+
+/** Keeps the trader's PnL fresh: re-reads the board every minute and flashes the change. */
+async function refresh() {
+  if (!live) return;
+  const lb = await api('/api/leaderboard?window=24h').catch(() => null);
+  const row = lb?.traders.find((x) => (live.address && x.solana.includes(live.address)) || x.handle === live.handle);
+  if (!row || row.pnlUsd == null || Math.abs(row.pnlUsd - live.pnl) < 1) return;
+  const node = $('tg-pnl');
+  countUsd(node, row.pnlUsd, live.pnl);
+  flash(node, row.pnlUsd > live.pnl);
+  node.classList.toggle('up', row.pnlUsd >= 0); node.classList.toggle('down', row.pnlUsd < 0);
+  live.pnl = row.pnlUsd;
 }
 
 async function target() {
@@ -39,6 +54,7 @@ async function target() {
 
   const pnl = row?.pnlUsd ?? t.pnlUsd;
   countUsd($('tg-pnl'), pnl);
+  live = { address: t.address, handle: row?.handle, pnl };
   $('tg-pnl').className = pnl >= 0 ? 'up' : 'down';
   $('tg-window').textContent = `${win} PnL on FOMO`;
   $('tg-vol').textContent = row?.volumeUsd != null ? usd(row.volumeUsd, { sign: false }) : '–';
@@ -82,7 +98,12 @@ async function circuit() {
     const s = cfg.float.split;
     $('split-bar').replaceChildren(...SPLIT.map(([k, , c], i) => el('i', { style: `flex:${s[k]};background:${c};animation-delay:${i * 80}ms` })));
     $('split-legend').replaceChildren(...SPLIT.map(([k, label, c]) =>
-      el('li', { style: `--c:${c}`, class: k === 'creator' ? 'is-you' : null }, el('b', {}, `${s[k] / 100}%`), label)));
+      el('li', { style: `--c:${c}`, class: k === 'creator' ? 'is-you' : null }, el('b', {}, el('span', {}, el('span', { 'data-pct': s[k] / 100 }, `${s[k] / 100}`), '%')), label)));
+    // percentages count up when the split scrolls into view
+    const box = document.querySelector('.split');
+    const run = () => box.querySelectorAll('[data-pct]').forEach((n) => countTo(n, Number(n.dataset.pct), { decimals: 0, duration: 900 }));
+    if (box.classList.contains('is-in')) run();
+    else new MutationObserver((_, o) => { if (box.classList.contains('is-in')) { o.disconnect(); run(); } }).observe(box, { attributes: true, attributeFilter: ['class'] });
   }
 }
 
@@ -90,3 +111,4 @@ target().catch(() => { $('tg-meta').textContent = 'Leaderboard unavailable right
 circuit().catch((e) => console.error('circuit', e));
 
 tilt(document.querySelectorAll('.target'), 6);
+every(60_000, refresh);

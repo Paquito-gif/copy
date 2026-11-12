@@ -105,16 +105,27 @@ export function reveal(root = document) {
   setTimeout(() => items.forEach((n) => n.classList.add('is-in')), 6000); // safety net for previews and captures
 }
 
-/** Counts a USD figure up from zero, keeping the compact format. */
-export function countUsd(node, value) {
+/** Counts a USD figure from `from` (0 by default) to its value, keeping the compact format. */
+export function countUsd(node, value, from = 0) {
   if (!motionOK || !Number.isFinite(value)) { node.textContent = usd(value); return; }
-  const start = performance.now(), dur = 1300;
+  const start = performance.now(), dur = from ? 900 : 1300;
   const step = (now) => {
     const k = Math.min(1, (now - start) / dur);
-    node.textContent = usd(value * (1 - Math.pow(1 - k, 4)));
+    node.textContent = usd(from + (value - from) * (1 - Math.pow(1 - k, 4)));
     if (k < 1) requestAnimationFrame(step);
   };
   requestAnimationFrame(step);
+}
+
+/** Brief green or red wash on a value that just changed. */
+export function flash(node, up) {
+  node.classList.remove('flash-up', 'flash-down'); void node.offsetWidth;
+  node.classList.add(up ? 'flash-up' : 'flash-down');
+}
+
+/** Runs fn every ms while the tab is visible. */
+export function every(ms, fn) {
+  setInterval(() => { if (document.visibilityState === 'visible') fn(); }, ms);
 }
 
 // ---------- 3D details ----------
@@ -171,6 +182,8 @@ function scrollFx() {
     ticking = false;
     const y = scrollY;
     if (motionOK) root.style.setProperty('--sy', String(Math.min(y, 1600)));
+    const max = root.scrollHeight - innerHeight;
+    root.style.setProperty('--progress', max > 0 ? (y / max).toFixed(4) : '0');
     top?.classList.toggle('is-scrolled', y > 8);
   };
   addEventListener('scroll', () => { if (!ticking) { ticking = true; requestAnimationFrame(update); } }, { passive: true });
@@ -224,6 +237,40 @@ async function initEngineStatus() {
   n.title = state === 'paused' ? 'The copy-trading engine is paused. Fees still accrue to the public wallet.' : '';
 }
 
+/** A pill that slides under the hovered nav link. */
+function initNavPill() {
+  const nav = $('nav');
+  if (!nav || !motionOK) return;
+  const pill = el('span', { class: 'nav__pill', 'aria-hidden': 'true' });
+  nav.prepend(pill);
+  const move = (a) => {
+    if (matchMedia('(max-width: 820px)').matches) return;
+    pill.style.width = `${a.offsetWidth}px`;
+    pill.style.transform = `translateX(${a.offsetLeft}px)`;
+    pill.classList.add('is-on');
+  };
+  nav.querySelectorAll('a').forEach((a) => { a.addEventListener('pointerenter', () => move(a)); a.addEventListener('focus', () => move(a)); });
+  nav.addEventListener('pointerleave', () => pill.classList.remove('is-on'));
+}
+
+/** Card borders light up where the pointer is. */
+function initSpotlight() {
+  if (!motionOK || !matchMedia('(hover: hover) and (pointer: fine)').matches) return;
+  let raf = 0, e = null;
+  addEventListener('pointermove', (ev) => {
+    e = ev;
+    if (raf) return;
+    raf = requestAnimationFrame(() => {
+      raf = 0;
+      const card = e.target.closest?.('.card');
+      if (!card) return;
+      const r = card.getBoundingClientRect();
+      card.style.setProperty('--px', `${e.clientX - r.left}px`);
+      card.style.setProperty('--py', `${e.clientY - r.top}px`);
+    });
+  }, { passive: true });
+}
+
 // ---------- navigation: active page + mobile menu ----------
 function markActive() {
   const path = location.pathname.replace(/\/$/, '') || '/';
@@ -244,6 +291,8 @@ buildCoins();
 scrollFx();
 markActive();
 initMenu();
+initNavPill();
+initSpotlight();
 initEngineStatus();
 initWallet();
 reveal();
