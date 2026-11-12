@@ -1,54 +1,54 @@
 <!doctype html>
-<html lang="fr">
+<html lang="en">
 <head>
-<title>PnL du copy-trading · Copy Launch</title>
-<meta name="description" content="Ce que le copy-trading du n°1 FOMO a rapporté : PnL réalisé et latent, trades, rachats et burns.">
+<title>Copy-trading PnL · Copy Launch</title>
+<meta name="description" content="What copying FOMO's #1 trader has earned: realized and unrealized PnL, trades, buybacks and burns.">
 <!--#include head-->
 </head>
 <body>
 <!--#include header-->
-<main class="wrap" style="padding-bottom:40px">
+<main class="wrap">
   <div class="page-head">
-    <h1 style="font-size:clamp(36px,5.5vw,64px)">PnL du <span class="hl">copy-trade</span></h1>
-    <p>Tout ce que le wallet public a gagné ou perdu en copiant le n°1 FOMO, et ce qu'il a racheté et brûlé.</p>
+    <h1>Copy-trading PnL</h1>
+    <p>Everything the public wallet has made or lost copying FOMO's #1 trader, and what it bought back and burned. Every total is read live.</p>
   </div>
   <div class="banner" id="banner" hidden></div>
 
   <div class="pnl-hero">
-    <div class="sticker big" data-reveal>
-      <span>PnL total (réalisé + latent)</span>
-      <div class="big__num" id="pnl-total">0,000</div>
+    <div class="card big" data-reveal>
+      <span class="label">Total PnL · realized + unrealized</span>
+      <div class="big__num" id="pnl-total">0.000</div>
       <div class="big__usd" id="pnl-usd">SOL</div>
-      <div class="stats" style="grid-template-columns:1fr 1fr;margin-top:12px">
-        <div class="mini"><span>Réalisé</span><b id="pnl-real">–</b></div>
-        <div class="mini"><span>Latent</span><b id="pnl-unreal">–</b></div>
-        <div class="mini"><span>Trades clôturés</span><b id="pnl-trades">–</b></div>
-        <div class="mini"><span>Trades gagnants</span><b id="pnl-win">–</b></div>
+      <div class="big__grid">
+        <div><span>Realized</span><b id="pnl-real">–</b></div>
+        <div><span>Unrealized</span><b id="pnl-unreal">–</b></div>
+        <div><span>Closed trades</span><b id="pnl-trades">–</b></div>
+        <div><span>Win rate</span><b id="pnl-win">–</b></div>
       </div>
     </div>
-    <div class="sticker chart" data-reveal>
-      <h3>PnL réalisé cumulé</h3>
+    <div class="card chart" data-reveal>
+      <span class="label">Cumulative realized PnL</span>
       <div id="chart"></div>
     </div>
   </div>
 
   <div class="stats">
-    <div class="sticker stat" data-reveal><span>Solde du wallet</span><b class="mono" id="st-bal">–</b><small>SOL</small></div>
-    <div class="sticker stat" data-reveal><span>Fees reçus</span><b class="mono" id="st-fees">–</b><small>SOL</small></div>
-    <div class="sticker stat stat--burn" data-reveal><span>Rachetés et brûlés</span><b class="mono" id="st-burn">–</b><small>SOL</small></div>
-    <div class="sticker stat" data-reveal><span>En attente de rachat</span><b class="mono" id="st-bucket">–</b><small>SOL</small></div>
+    <div class="card stat" data-reveal><span class="label">Wallet balance</span><b id="st-bal">–</b><small>SOL</small></div>
+    <div class="card stat" data-reveal><span class="label">Fees received</span><b id="st-fees">–</b><small>SOL</small></div>
+    <div class="card stat" data-reveal><span class="label">Bought back &amp; burned</span><b id="st-burn">–</b><small>SOL</small></div>
+    <div class="card stat" data-reveal><span class="label">Queued for buyback</span><b id="st-bucket">–</b><small>SOL</small></div>
   </div>
 
   <div class="grid2">
-    <div class="sticker panel" data-reveal><h3>Positions ouvertes</h3><div class="list" id="positions"></div></div>
-    <div class="sticker panel" data-reveal><h3>Historique</h3><div class="list" id="history"></div></div>
+    <div class="card panel" data-reveal><h3>Open positions</h3><div class="list" id="positions"></div></div>
+    <div class="card panel" data-reveal><h3>Activity</h3><div class="list" id="history"></div></div>
   </div>
 
-  <section style="margin-top:40px">
-    <div class="section__head" data-reveal><h2 style="font-size:clamp(26px,3.4vw,40px)">Coins rachetés et brûlés</h2><p>Chaque coin lancé ici, avec les fees qu'il a générés et ce qui a été racheté pour lui.</p></div>
+  <section class="section" style="padding-bottom:0">
+    <div class="head" data-reveal><span class="label">Burns</span><h2>Coins bought back and burned</h2><p>Every coin launched here, with the fees it generated and how much was bought back for it.</p></div>
     <div class="coins" id="coins"></div>
   </section>
-  <p class="source" style="margin-top:24px">Wallet public : <a class="mono" id="wallet-link" target="_blank" rel="noopener" style="color:var(--sun);word-break:break-all"></a></p>
+  <p class="source" style="margin-top:20px">Public wallet: <a class="mono" id="wallet-link" target="_blank" rel="noopener" style="color:var(--blue-hi);word-break:break-all"></a></p>
 </main>
 <!--#include footer-->
 <script type="module" src="/js/pnl.js"></script>

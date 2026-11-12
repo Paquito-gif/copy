@@ -29,9 +29,9 @@ const DISC_QUOTE_ASSET_OWNER = FLOAT_PROGRAM; // un quote activé = compte `quot
 
 /** Frais affichés par Float pour chaque palier (fee Float + 0,25 % Raydium). */
 export const FEE_TIERS = [
-  { tier: 0, label: '1 %', floatRate: 7500n },
-  { tier: 1, label: '2 %', floatRate: 17500n },
-  { tier: 2, label: '2,5 %', floatRate: 22500n },
+  { tier: 0, label: '1%', floatRate: 7500n },
+  { tier: 1, label: '2%', floatRate: 17500n },
+  { tier: 2, label: '2.5%', floatRate: 22500n },
 ] as const;
 
 const seed = (s: string) => Buffer.from(s);
@@ -75,17 +75,17 @@ export interface LaunchParams {
 }
 
 export function validateLaunch(p: Pick<LaunchParams, 'name' | 'ticker' | 'uri' | 'tier'>) {
-  if (!/^[A-Za-z0-9]{1,10}$/.test(p.ticker)) throw new Error('Ticker : 1 à 10 lettres ou chiffres');
+  if (!/^[A-Za-z0-9]{1,10}$/.test(p.ticker)) throw new Error('Ticker: 1 to 10 letters or digits');
   const n = Buffer.byteLength(p.name.trim(), 'utf8');
-  if (n < 1 || n > 32) throw new Error('Nom : 1 à 32 caractères');
-  if (Buffer.byteLength(p.uri, 'utf8') > 200) throw new Error('URI de métadonnées trop longue');
-  if (![0, 1, 2].includes(p.tier)) throw new Error('Palier de fees invalide');
+  if (n < 1 || n > 32) throw new Error('Name: 1 to 32 characters');
+  if (Buffer.byteLength(p.uri, 'utf8') > 200) throw new Error('Metadata URI too long');
+  if (![0, 1, 2].includes(p.tier)) throw new Error('Invalid fee tier');
 }
 
 export function buildLaunchIx(p: LaunchParams): { ix: TransactionInstruction; mint: PublicKey; launch: PublicKey } {
   validateLaunch(p);
   if (!p.quoteTokenProgram.equals(TOKEN) && !p.quoteTokenProgram.equals(TOKEN_2022)) {
-    throw new Error('Programme token du quote non supporté');
+    throw new Error('Unsupported pair token program');
   }
   const mint = derive.mint(p.creator, p.nonce);
   const pool = derive.pool(mint, p.quoteMint);
@@ -147,7 +147,7 @@ export interface FloatConfig {
 }
 
 export function decodeConfig(d: Buffer): FloatConfig {
-  if (d.length < 272 || !d.subarray(0, 8).equals(DISC_CONFIG)) throw new Error('Compte config Float inattendu');
+  if (d.length < 272 || !d.subarray(0, 8).equals(DISC_CONFIG)) throw new Error('Unexpected Float config account');
   const s = (i: number) => d.readUInt16LE(72 + i * 2);
   return {
     split: { holders: s(0), creator: s(1), flagship: s(2), traders: s(3), treasury: s(4) },
@@ -160,15 +160,15 @@ export function decodeConfig(d: Buffer): FloatConfig {
 /** Vérifie que Float accepte les lancements et que nos dérivations correspondent toujours à la config on-chain. */
 export async function checkFloatConfig(rpc: Rpc): Promise<FloatConfig> {
   const acc = await rpc.getAccountInfo(FLOAT_CONFIG.toBase58());
-  if (!acc || acc.owner !== FLOAT_PROGRAM.toBase58()) throw new Error('Config Float introuvable');
+  if (!acc || acc.owner !== FLOAT_PROGRAM.toBase58()) throw new Error('Float config not found');
   const cfg = decodeConfig(Buffer.from(acc.data));
-  if (cfg.launchesPaused) throw new Error('Float a mis les lancements en pause');
+  if (cfg.launchesPaused) throw new Error('Float has paused launches');
   for (const t of [0, 1, 2]) {
     if (cfg.platforms[t] !== derive.platformConfig(t).toBase58()) {
-      throw new Error('Le programme Float a changé (platform config). Mise à jour du launchpad nécessaire.');
+      throw new Error('The Float program changed (platform config). The launchpad needs an update.');
     }
   }
-  if (cfg.split.creator === 0) throw new Error('Float ne verse plus de part créateur');
+  if (cfg.split.creator === 0) throw new Error('Float no longer pays a creator share');
   return cfg;
 }
 
@@ -179,7 +179,7 @@ export interface LaunchState {
 }
 
 export function decodeLaunchState(d: Buffer): LaunchState {
-  if (d.length < 210 || !d.subarray(0, 8).equals(DISC_LAUNCH_STATE)) throw new Error('Pas un compte LaunchState Float');
+  if (d.length < 210 || !d.subarray(0, 8).equals(DISC_LAUNCH_STATE)) throw new Error('Not a Float LaunchState account');
   let o = 8;
   const pk = () => { const k = new PublicKey(d.subarray(o, o + 32)).toBase58(); o += 32; return k; };
   const creator = pk(), feeReceiver = pk(), coinMint = pk(), quoteMint = pk(), pool = pk();

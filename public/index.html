@@ -1,102 +1,85 @@
 <!doctype html>
-<html lang="fr">
+<html lang="en">
 <head>
-<title>Copy Launch : launchpad Solana qui copie le n°1 de FOMO</title>
-<meta name="description" content="Lance ton memecoin sur Float. Ses fees vont à un wallet public qui copie le n°1 du classement FOMO, puis rachète et brûle les coins.">
+<title>Copy Launch · Launch coins that copy FOMO's top trader</title>
+<meta name="description" content="Launch a coin on Float. Its creator fees fund a public wallet that copy-trades FOMO's #1 trader, then buys back and burns the coins.">
 <!--#include head-->
 </head>
 <body>
 <!--#include header-->
-<main>
+<main class="wrap">
   <section class="hero">
-    <div class="wrap hero__grid">
-      <div class="hero__copy">
-        <span class="chip"><span class="live" aria-hidden="true"></span>Launchpad sur Float · Raydium LaunchLab</span>
-        <h1>Lance ton coin. <span class="hl">Ses fees copient</span> le n°1 de FOMO.</h1>
-        <p class="hero__lead">Chaque coin lancé ici envoie sa part créateur à un wallet public. Le wallet copie le meilleur trader FOMO, puis rachète et brûle les coins avec les profits.</p>
-        <div class="hero__ctas">
-          <a class="btn" href="/lancer">Lancer un coin <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
-          <a class="btn btn--ghost" href="/leaderboard">Voir le leaderboard</a>
-        </div>
-      </div>
-      <div class="hero__art">
-        <div class="floaters" id="floaters" aria-hidden="true"></div>
-        <article class="sticker copycard" id="copycard" aria-live="polite">
-          <span class="stamp">COPIÉ EN DIRECT</span>
-          <div class="copycard__top">
-            <div class="copycard__who" id="cc-who">
-              <span class="avatar" aria-hidden="true">?</span>
-              <div><span class="muted">Trader n°1 FOMO</span><div class="copycard__name" id="cc-name">Chargement…</div></div>
-            </div>
-          </div>
-          <div>
-            <span class="muted" id="cc-window">PnL sur 24 h, selon FOMO</span>
-            <div class="copycard__pnl mono up" id="cc-pnl">–</div>
-          </div>
-          <div class="copycard__meta">
-            <div class="mini"><span>Dernier trade</span><b id="cc-last">–</b></div>
-            <div class="mini"><span>Transactions 24 h</span><b id="cc-tx">–</b></div>
-          </div>
-          <a class="btn btn--sm btn--ghost" href="/leaderboard">Voir le classement complet</a>
-        </article>
-      </div>
+    <span class="pill"><span class="live" aria-hidden="true"></span>Built on Float · Raydium LaunchLab</span>
+    <h1>Launch a coin. Its fees <em>copy FOMO's #1</em> trader.</h1>
+    <p class="hero__lead">Every coin launched here sends its creator fees to a public wallet. That wallet mirrors the top trader on FOMO, then buys back and burns the coins with the profits.</p>
+    <div class="hero__ctas">
+      <a class="btn" href="/launch">Launch a coin <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+      <a class="btn btn--ghost" href="/leaderboard">View leaderboard</a>
     </div>
   </section>
 
-  <section class="section" style="padding-top:24px">
-    <div class="wrap">
-      <div class="stats">
-        <div class="sticker stat" data-reveal><span>Fees reçus par le wallet</span><b class="mono" id="st-fees">0,000</b><small>SOL</small></div>
-        <div class="sticker stat" data-reveal><span>PnL du copy-trading</span><b class="mono" id="st-pnl">0,000</b><small>SOL réalisés</small></div>
-        <div class="sticker stat stat--burn" data-reveal><span>Rachetés et brûlés</span><b class="mono" id="st-burn">0,000</b><small>SOL</small></div>
-        <div class="sticker stat" data-reveal><span>Coins lancés ici</span><b class="mono" id="st-coins">0</b><small id="st-engine">moteur</small></div>
+  <article class="card copybar" aria-live="polite">
+    <svg class="spark" viewBox="0 0 1000 90" preserveAspectRatio="none" aria-hidden="true"><path id="spark" d="M0 70 C 120 66, 180 74, 260 58 S 420 64, 500 44 S 660 52, 740 30 S 900 34, 1000 12"/></svg>
+    <div class="copybar__who">
+      <span class="avatar avatar--lg" id="cc-avatar" aria-hidden="true">?</span>
+      <div>
+        <span class="label"><span id="cc-rank">FOMO #1</span> · copying now</span>
+        <div class="copybar__name" id="cc-name">Loading…</div>
+        <span class="chip chip--up" style="margin-top:10px"><span class="live" aria-hidden="true"></span><span id="cc-state">Live</span></span>
       </div>
+    </div>
+    <div class="copybar__stats">
+      <div><span class="label" id="cc-window">24h PnL</span><b class="up" id="cc-pnl">–</b></div>
+      <div><span class="label">Last trade</span><b id="cc-last">–</b></div>
+      <div><span class="label">Trades · 24h</span><b id="cc-tx">–</b></div>
+    </div>
+  </article>
+
+  <section class="section" style="padding-top:28px">
+    <div class="stats">
+      <div class="card stat" data-reveal><span class="label">Fees received</span><b id="st-fees">0.000</b><small>SOL in the public wallet</small></div>
+      <div class="card stat" data-reveal><span class="label">Copy-trade PnL</span><b id="st-pnl">0.000</b><small>SOL realized</small></div>
+      <div class="card stat" data-reveal><span class="label">Bought back &amp; burned</span><b id="st-burn">0.000</b><small>SOL</small></div>
+      <div class="card stat" data-reveal><span class="label">Coins launched</span><b id="st-coins">0</b><small id="st-engine">engine</small></div>
     </div>
   </section>
 
-  <section class="section" id="how">
-    <div class="wrap">
-      <div class="section__head" data-reveal>
-        <h2>Des fees au <span class="squiggle">burn</span>, en 3 étapes</h2>
-        <p>Tout passe par un wallet public : chaque trade, rachat et burn a sa transaction sur Solana.</p>
-      </div>
-      <div class="steps">
-        <article class="sticker step" data-reveal><span class="step__n">1</span><h3>Tu lances ton coin sur Float</h3><p>Image, nom, ticker, paire (SOL, USDC ou une action tokenisée). Tu signes avec ton wallet, la transaction est simulée avant.</p></article>
-        <article class="sticker step" data-reveal><span class="step__n">2</span><h3>Ses fees copient le n°1 FOMO</h3><p>La part créateur arrive dans le wallet public. Le moteur copie les trades du n°1 FOMO, revérifié toutes les 5 h.</p></article>
-        <article class="sticker step" data-reveal><span class="step__n">3</span><h3>Les profits rachètent et brûlent</h3><p><b class="hl" id="bb-pct">80 %</b> des profits rachètent les coins du launchpad, chacun selon les fees qu'il a générés, puis les brûlent.</p></article>
-      </div>
+  <section class="section" id="how" style="padding-top:0">
+    <div class="head" data-reveal>
+      <span class="label">How it works</span>
+      <h2>From fees to burns in three steps</h2>
+      <p>Everything runs through one public wallet. Every copied trade, buyback and burn has its own transaction on Solana.</p>
+    </div>
+    <div class="steps">
+      <article class="card step" data-reveal><span class="step__n">1</span><h3>You launch on Float</h3><p>Image, name, ticker and a pair: SOL, USDC or a tokenized stock. You sign from your wallet after a full simulation.</p></article>
+      <article class="card step" data-reveal><span class="step__n">2</span><h3>Fees copy FOMO's #1</h3><p>The creator share lands in the public wallet, which mirrors FOMO's top trader. The leader is re-checked every 5 hours.</p></article>
+      <article class="card step" data-reveal><span class="step__n">3</span><h3>Profits buy back and burn</h3><p><b id="bb-pct">80%</b> of realized profits buy back each coin in proportion to the fees it generated, then burn it.</p></article>
     </div>
   </section>
 
   <section class="section" style="padding-top:0">
-    <div class="wrap">
-      <div class="sticker split" data-reveal>
-        <div><h3>Où vont les fees de ton coin</h3><p class="muted" style="margin-top:6px">Répartition lue en direct dans la configuration du programme Float.</p></div>
-        <div class="split__bar" id="split-bar" aria-hidden="true"></div>
-        <ul class="split__legend" id="split-legend"></ul>
-      </div>
+    <div class="card split" data-reveal>
+      <div class="head" style="margin:0"><span class="label">Fee split</span><h3 style="font-size:20px">Where your coin's trading fees go</h3><p style="font-size:14px">Read live from the Float program's on-chain config.</p></div>
+      <div class="split__bar" id="split-bar" aria-hidden="true"></div>
+      <ul class="split__legend" id="split-legend"></ul>
     </div>
   </section>
 
-  <section class="section" id="faq">
-    <div class="wrap">
-      <div class="section__head" data-reveal><h2>Questions</h2></div>
-      <div class="faq" data-reveal>
-        <details><summary>Qui touche les fees de mon coin ?</summary><p>La part créateur, 5 % du fee Float, va au wallet public du launchpad. Les holders de ton coin gardent leur part, versée par Float dans la paire.</p></details>
-        <details><summary>C'est quoi le classement FOMO ?</summary><p>FOMO est une app de trading Solana qui classe ses traders par PnL. Le moteur copie le wallet du n°1, avec des limites de taille et de pertes.</p></details>
-        <details><summary>Le wallet de copy-trading peut-il perdre ?</summary><p>Oui. Il entre après le trader copié, à un moins bon prix. Des limites coupent les pertes, mais aucun profit n'est garanti.</p></details>
-        <details><summary>Quels coins sont rachetés ?</summary><p>Tous ceux lancés ici, en proportion des fees que chacun a générés. Les coins rachetés sont brûlés, et chaque burn est visible sur la page PnL.</p></details>
-        <details><summary>C'est un site officiel de Float ?</summary><p>Non. C'est une interface indépendante qui appelle le programme Float. Les coins sont de vrais coins Float sur Raydium LaunchLab.</p></details>
-      </div>
+  <section class="section" id="faq" style="padding-top:0">
+    <div class="head" data-reveal><span class="label">FAQ</span><h2>Questions</h2></div>
+    <div class="faq" data-reveal>
+      <details><summary>Who receives my coin's fees?</summary><p>The creator share, 5% of Float's fee, goes to the launchpad's public wallet. Your coin's holders keep their own share, paid by Float in the pair asset.</p></details>
+      <details><summary>What is the FOMO leaderboard?</summary><p>FOMO is a Solana trading app that ranks its traders by PnL. The engine copies the #1 wallet, with position-size and loss limits.</p></details>
+      <details><summary>Can the copy-trading wallet lose money?</summary><p>Yes. It always enters after the trader it copies, at a worse price. Limits cut losses, but no profit is guaranteed.</p></details>
+      <details><summary>Which coins get bought back?</summary><p>Every coin launched here, in proportion to the fees it generated. Bought-back coins are burned, and every burn shows up on the PnL page.</p></details>
+      <details><summary>Is this an official Float site?</summary><p>No. It's an independent interface that calls the Float program. The coins are real Float coins on Raydium LaunchLab.</p></details>
     </div>
   </section>
 
-  <section class="section" style="padding-top:0">
-    <div class="wrap">
-      <div class="cta" data-reveal>
-        <div><h2>Ton coin, nos trades, ses burns</h2><p>Une minute, une signature. Les fees partent au wallet public.</p></div>
-        <a class="btn" href="/lancer">Lancer un coin <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
-      </div>
+  <section style="padding-bottom:24px">
+    <div class="card cta" data-reveal>
+      <div><h2>Your coin, our trades, its burns</h2><p>One minute, one signature. Fees go to the public wallet.</p></div>
+      <a class="btn" href="/launch">Launch a coin</a>
     </div>
   </section>
 </main>

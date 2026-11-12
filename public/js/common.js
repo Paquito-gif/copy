@@ -1,24 +1,29 @@
-/* Commun à toutes les pages : API, formats, bandeau du classement, animations, wallet. */
+/* Shared by every page: API, formatting, live ticker, motion helpers, wallet. */
 const motionOK = !matchMedia('(prefers-reduced-motion: reduce)').matches;
 if (motionOK) document.documentElement.classList.add('anim');
 
+const LOCALE = 'en-US';
 export const $ = (id) => document.getElementById(id);
 export const short = (a) => (a ? `${a.slice(0, 4)}…${a.slice(-4)}` : '–');
-export const fmt = (n, d = 3) => Number(n || 0).toLocaleString('fr-FR', { minimumFractionDigits: d, maximumFractionDigits: d });
+export const fmt = (n, d = 3) => Number(n || 0).toLocaleString(LOCALE, { minimumFractionDigits: d, maximumFractionDigits: d });
 export const sol = (n, d = 3) => `${fmt(n, d)} SOL`;
-export const usd = (n, signed = true) => {
-  if (n == null || Number.isNaN(n)) return '–';
-  const s = Math.abs(n) >= 1000 ? Math.round(Math.abs(n)).toLocaleString('fr-FR') : Math.abs(n).toLocaleString('fr-FR', { maximumFractionDigits: 2 });
-  return `${signed ? (n >= 0 ? '+' : '−') : ''}${s} $`;
-};
 export const signed = (n, d = 3) => `${n > 0 ? '+' : n < 0 ? '−' : ''}${fmt(Math.abs(n), d)}`;
+/** Compact USD: +$107.8K, $96,300, −$1.2M */
+export const usd = (n, { sign = true, compact = true } = {}) => {
+  if (n == null || Number.isNaN(n)) return '–';
+  const a = Math.abs(n);
+  const body = compact && a >= 1000
+    ? a.toLocaleString(LOCALE, { notation: 'compact', maximumFractionDigits: a >= 1e6 ? 2 : 1 })
+    : a.toLocaleString(LOCALE, { maximumFractionDigits: a < 10 ? 2 : 0 });
+  return `${sign ? (n >= 0 ? '+' : '−') : ''}$${body}`;
+};
 export const ago = (t) => {
   if (!t) return '';
   const m = Math.round((Date.now() - t) / 60000);
-  if (m < 1) return 'à l’instant';
-  if (m < 60) return `il y a ${m} min`;
+  if (m < 1) return 'just now';
+  if (m < 60) return `${m}m ago`;
   const h = Math.round(m / 60);
-  return h < 48 ? `il y a ${h} h` : `il y a ${Math.round(h / 24)} j`;
+  return h < 48 ? `${h}h ago` : `${Math.round(h / 24)}d ago`;
 };
 
 export function el(tag, attrs = {}, ...children) {
@@ -39,11 +44,11 @@ export async function api(path, body) {
     ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
     : undefined);
   const data = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(data.error || `Erreur ${r.status}`);
+  if (!r.ok) throw new Error(data.error || `Error ${r.status}`);
   return data;
 }
 
-/** Avatar : photo FOMO si dispo, sinon l'initiale. */
+/** FOMO profile picture when available, the initial otherwise. */
 export function avatar(url, name, cls = '') {
   const fallback = () => el('span', { class: `avatar ${cls}`, 'aria-hidden': 'true' }, (name || '?').replace('@', '').slice(0, 1).toUpperCase());
   if (!url) return fallback();
@@ -52,8 +57,8 @@ export function avatar(url, name, cls = '') {
   return img;
 }
 
-/** Compteur qui s'anime jusqu'à sa valeur. */
-export function countTo(node, value, { decimals = 3, prefix = '', suffix = '', signedValue = false, duration = 1200 } = {}) {
+/** Counts a number up to its value. */
+export function countTo(node, value, { decimals = 3, prefix = '', suffix = '', signedValue = false, duration = 1100 } = {}) {
   const render = (v) => {
     const sign = signedValue ? (v > 0 ? '+' : v < 0 ? '−' : '') : (v < 0 ? '−' : '');
     node.textContent = `${prefix}${sign}${fmt(Math.abs(v), decimals)}${suffix}`;
@@ -68,34 +73,32 @@ export function countTo(node, value, { decimals = 3, prefix = '', suffix = '', s
   requestAnimationFrame(step);
 }
 
-/** Apparition des blocs au scroll (contenu visible par défaut sans JS / sans mouvement). */
+/** Fade-in on scroll; everything is visible without JS or with reduced motion. */
 export function reveal(root = document) {
   const items = root.querySelectorAll('[data-reveal]:not(.is-in)');
   if (!motionOK || !('IntersectionObserver' in window)) { items.forEach((n) => n.classList.add('is-in')); return; }
   const io = new IntersectionObserver((entries) => {
     for (const e of entries) if (e.isIntersecting) { e.target.classList.add('is-in'); io.unobserve(e.target); }
-  }, { rootMargin: '0px 0px -8% 0px' });
-  items.forEach((n, i) => { if (!n.style.getPropertyValue('--delay')) n.style.setProperty('--delay', `${(i % 4) * 70}ms`); io.observe(n); });
-  // sécurité : si rien ne fait défiler la page (capture, aperçu, impression), tout s'affiche quand même
-  setTimeout(() => items.forEach((n) => n.classList.add('is-in')), 4000);
+  }, { rootMargin: '0px 0px -6% 0px' });
+  items.forEach((n, i) => { if (!n.style.getPropertyValue('--delay')) n.style.setProperty('--delay', `${(i % 4) * 60}ms`); io.observe(n); });
+  setTimeout(() => items.forEach((n) => n.classList.add('is-in')), 4000); // safety net for previews and captures
 }
 
-/** Bandeau défilant : le top du classement FOMO. */
-async function loadTape() {
+/** Live ticker: the FOMO top 10. */
+async function loadTicker() {
   const track = $('tape-track');
   if (!track) return;
   try {
     const lb = await api('/api/leaderboard?window=24h');
-    const items = lb.traders.slice(0, 10).map((t) => el('span', { class: 'tape__item' },
+    const items = lb.traders.slice(0, 10).map((t) => el('span', { class: 'ticker__item' },
       el('span', {}, `#${t.rank}`),
       t.avatarUrl ? el('img', { src: t.avatarUrl, alt: '', loading: 'lazy', referrerpolicy: 'no-referrer' }) : null,
-      `@${t.handle}`,
-      el('b', {}, usd(t.pnlUsd)),
-      t.copied ? el('span', {}, '· copié') : null,
-      el('i', { class: 'tape__sep', 'aria-hidden': 'true' })));
+      el('b', {}, `@${t.handle}`),
+      el('span', { class: 'mono' }, usd(t.pnlUsd)),
+      t.copied ? el('span', { class: 'chip chip--up', style: 'height:20px;font-size:11px' }, 'Copying') : null));
     if (!items.length) return;
     track.replaceChildren(...items, ...items.map((n) => n.cloneNode(true)));
-    track.parentElement.setAttribute('aria-label', `Classement FOMO 24 h : ${lb.traders.slice(0, 3).map((t) => `#${t.rank} @${t.handle} ${usd(t.pnlUsd)}`).join(', ')}`);
+    track.parentElement.setAttribute('aria-label', `FOMO 24h leaderboard: ${lb.traders.slice(0, 3).map((t) => `#${t.rank} @${t.handle} ${usd(t.pnlUsd)}`).join(', ')}`);
   } catch {
     track.parentElement.hidden = true;
   }
@@ -109,41 +112,44 @@ function findProvider() {
   if (window.backpack?.isBackpack) return window.backpack;
   return window.solana || null;
 }
+const setWalletLabel = (text, on = false) => {
+  const b = $('wallet-btn');
+  if (!b) return;
+  b.classList.toggle('is-on', on);
+  b.lastChild.textContent = text;
+};
 export async function connectWallet() {
   walletState.provider = findProvider();
   if (!walletState.provider) return false;
   const res = await walletState.provider.connect();
   walletState.address = (res?.publicKey || walletState.provider.publicKey).toString();
-  const b = $('wallet-btn');
-  if (b) { b.classList.add('is-on'); b.lastChild.textContent = short(walletState.address); }
+  setWalletLabel(short(walletState.address), true);
+  document.dispatchEvent(new CustomEvent('wallet', { detail: walletState.address }));
   return true;
 }
-function initWalletButton() {
-  const b = $('wallet-btn');
-  if (!b) return;
-  b.addEventListener('click', async () => {
+function initWallet() {
+  $('wallet-btn')?.addEventListener('click', async () => {
     try {
-      if (!(await connectWallet())) { b.lastChild.textContent = 'Installer Phantom'; window.open('https://phantom.com/download', '_blank', 'noopener'); }
-    } catch { b.lastChild.textContent = 'Connexion refusée'; setTimeout(() => { b.lastChild.textContent = 'Connecter'; }, 2500); }
+      if (!(await connectWallet())) { setWalletLabel('Get Phantom'); window.open('https://phantom.com/download', '_blank', 'noopener'); }
+    } catch { setWalletLabel('Request declined'); setTimeout(() => setWalletLabel('Connect Wallet'), 2500); }
   });
-  // reconnexion silencieuse si le wallet a déjà autorisé le site
   const p = findProvider();
   p?.connect?.({ onlyIfTrusted: true }).then((res) => {
     walletState.provider = p;
     walletState.address = (res?.publicKey || p.publicKey)?.toString() ?? null;
-    if (walletState.address) { b.classList.add('is-on'); b.lastChild.textContent = short(walletState.address); }
+    if (walletState.address) { setWalletLabel(short(walletState.address), true); document.dispatchEvent(new CustomEvent('wallet', { detail: walletState.address })); }
   }).catch(() => {});
 }
 
-// ---------- onglet actif ----------
-function markTab() {
+// ---------- active page in the dock ----------
+function markActive() {
   const path = location.pathname.replace(/\/$/, '') || '/';
-  document.querySelectorAll('.tabs a').forEach((a) => {
+  document.querySelectorAll('.dock a').forEach((a) => {
     if ((a.getAttribute('href').replace(/\/$/, '') || '/') === path) a.setAttribute('aria-current', 'page');
   });
 }
 
-markTab();
-initWalletButton();
-loadTape();
+markActive();
+initWallet();
+loadTicker();
 reveal();

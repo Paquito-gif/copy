@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<title>Launch a coin · Copy Launch</title>
+<meta name="description" content="Launch a coin on Float in a minute. Its creator fees fund copy-trading of FOMO's #1 trader.">
+<!--#include head-->
+</head>
+<body>
+<!--#include header-->
+<main class="wrap">
+  <div class="page-head">
+    <h1>Launch a coin</h1>
+    <p>Pair it with SOL, USDC or a tokenized stock. Every launch is simulated before you sign, so nothing is sent if Float would reject it.</p>
+  </div>
+
+  <div class="launch-grid">
+    <form id="form" novalidate autocomplete="off">
+      <section class="card block" aria-labelledby="b1">
+        <div class="block__head"><span class="step__n">1</span><h3 id="b1">Pick your pairing asset</h3><p>Your coin trades against it, and its fees are paid in it.</p></div>
+        <div class="field"><input id="pair-search" type="search" placeholder="Search pairs, e.g. NVDA, Tesla, USDC" aria-label="Search pairs"></div>
+        <div class="filters" role="group" aria-label="Pair type">
+          <button type="button" data-f="all" aria-pressed="true">All</button>
+          <button type="button" data-f="crypto" aria-pressed="false">Crypto</button>
+          <button type="button" data-f="stock" aria-pressed="false">Tokenized stocks</button>
+        </div>
+        <div class="pairs" id="pairs" role="radiogroup" aria-label="Pair"><p class="hint">Loading pairs enabled on Float…</p></div>
+        <input type="hidden" id="quote">
+      </section>
+
+      <section class="card block" aria-labelledby="b2">
+        <div class="block__head"><span class="step__n">2</span><h3 id="b2">Name your coin</h3><p>This is how it shows up everywhere.</p></div>
+        <div class="row2">
+          <label class="field">Ticker<input id="ticker" class="mono" maxlength="10" required placeholder="TICKER" aria-describedby="err-ticker"><span class="field__err" id="err-ticker"></span></label>
+          <label class="field">Name<input id="name" maxlength="32" required placeholder="My Coin" aria-describedby="err-name"><span class="field__err" id="err-name"></span></label>
+        </div>
+        <div class="field">
+          <span>Image</span>
+          <label class="upload" id="image-pick">
+            <input type="file" id="image" accept="image/png,image/jpeg,image/webp,image/gif" aria-describedby="err-image">
+            <span class="upload__thumb" id="thumb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M4 20h16"/></svg></span>
+            <span class="upload__text">Upload image<small>PNG, JPG, GIF or WebP · 1 MB max</small></span>
+          </label>
+          <span class="field__err" id="err-image"></span>
+        </div>
+        <label class="field">Description <textarea id="description" maxlength="500" rows="3" placeholder="What's your coin about? (optional)"></textarea></label>
+        <details class="links">
+          <summary>Add links (optional)</summary>
+          <div class="row3">
+            <label class="field">X<input id="twitter" type="url" placeholder="https://x.com/…"></label>
+            <label class="field">Telegram<input id="telegram" type="url" placeholder="https://t.me/…"></label>
+            <label class="field">Website<input id="website" type="url" placeholder="https://…"></label>
+          </div>
+        </details>
+      </section>
+
+      <section class="card block" aria-labelledby="b3">
+        <div class="block__head"><span class="step__n">3</span><h3 id="b3">Choose a trading fee</h3><p>Charged on every trade of your coin. A lower fee usually draws more volume.</p></div>
+        <div class="seg" id="tiers" role="radiogroup" aria-label="Trading fee"></div>
+        <input type="hidden" id="tier" value="0">
+        <p class="hint" id="tier-hint"></p>
+        <label class="ack"><input type="checkbox" id="ack" aria-describedby="err-ack"> I understand that creator fees go to the public wallet, and that copy-trading can lose money. No profit is guaranteed.</label>
+        <span class="field__err" id="err-ack"></span>
+      </section>
+    </form>
+
+    <aside class="card review-card" aria-labelledby="rv-h">
+      <span class="label" id="rv-h">Review</span>
+      <div class="preview">
+        <span class="preview__img" id="pv-img">?</span>
+        <div><b id="pv-ticker">$TICKER</b><span id="pv-name">Your coin</span></div>
+      </div>
+      <dl class="rows">
+        <div><dt>Paired with</dt><dd id="pv-pair">–</dd></div>
+        <div><dt>Trading fee</dt><dd id="pv-tier">1%</dd></div>
+        <div><dt>Supply</dt><dd>1,000,000,000</dd></div>
+        <div><dt>Creator fees go to</dt><dd><a id="pv-receiver" target="_blank" rel="noopener">–</a></dd></div>
+        <div><dt>Liquidity</dt><dd class="ok">Locked forever</dd></div>
+        <div id="pv-cost-row" hidden><dt>Cost to your wallet</dt><dd id="pv-cost">–</dd></div>
+        <div id="pv-sim-row" hidden><dt>Float simulation</dt><dd class="ok" id="pv-sim">–</dd></div>
+      </dl>
+
+      <div id="step-form">
+        <button class="btn btn--wide" id="submit" type="submit" form="form">Review launch</button>
+      </div>
+      <div id="step-sign" hidden>
+        <p class="hint" style="margin-bottom:12px">Once signed, the fee receiver can't be changed.</p>
+        <div class="actions">
+          <button class="btn" id="sign" type="button">Sign in wallet</button>
+          <button class="btn btn--ghost" id="edit" type="button">Edit</button>
+        </div>
+      </div>
+      <div id="step-done" hidden>
+        <span class="chip chip--up"><span class="live" aria-hidden="true"></span>Live on Float</span>
+        <dl class="rows" style="margin-top:10px"><div><dt>Mint address</dt><dd class="mono" id="dn-mint"></dd></div></dl>
+        <div class="actions" style="margin-top:6px">
+          <a class="btn" id="dn-raydium" target="_blank" rel="noopener">View on Raydium</a>
+          <a class="btn btn--ghost" id="dn-solscan" target="_blank" rel="noopener">Transaction</a>
+        </div>
+        <div style="display:flex;gap:18px;flex-wrap:wrap;margin-top:14px"><button class="linkbtn" id="dn-copy" type="button">Copy mint address</button><button class="linkbtn" id="dn-again" type="button">Launch another coin</button></div>
+      </div>
+      <p class="status" id="status" role="status" aria-live="polite"></p>
+    </aside>
+  </div>
+</main>
+<!--#include footer-->
+<script src="https://unpkg.com/@solana/web3.js@1.98.0/lib/index.iife.min.js"></script>
+<script type="module" src="/js/launch.js"></script>
+</body>
+</html>

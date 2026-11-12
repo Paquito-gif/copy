@@ -23,7 +23,7 @@ const json = (body: unknown, status = 200, extra: Record<string, string> = {}) =
 
 const clean = (v: unknown, max: number) => String(v ?? '').replace(/[\u0000-\u001f]/g, '').trim().slice(0, max);
 const safeUrl = (v: unknown) => { const s = clean(v, 200); return /^https:\/\/[^\s]+$/.test(s) ? s : ''; };
-const pubkey = (v: unknown, label: string) => { try { return new PublicKey(String(v)); } catch { throw new HttpError(400, `${label} invalide`); } };
+const pubkey = (v: unknown, label: string) => { try { return new PublicKey(String(v)); } catch { throw new HttpError(400, `Invalid ${label}`); } };
 const IMG_TYPES: Record<string, string> = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/gif': 'gif' };
 
 const engine = (env: Env) => env.ENGINE.get(env.ENGINE.idFromName('main'));
@@ -73,7 +73,7 @@ async function apiQuotes(env: Env) {
     stocks.forEach((t, i) => { if (accs[i]) list.push({ mint: t.id, symbol: t.symbol, name: t.name, icon: t.icon }); });
     complete = true;
   } catch (e) {
-    console.error('Liste des paires incomplète :', (e as Error).message);
+    console.error('Pair list incomplete:', (e as Error).message);
   }
   let result = list;
   if (complete) await env.FILES.put('cache/quotes.json', JSON.stringify(list));
@@ -107,9 +107,9 @@ async function apiMetadata(env: Env, origin: string, body: any) {
   const ticker = clean(body.ticker, 10);
   validateLaunch({ name, ticker, uri: 'x', tier: 0 });
   const m = /^data:(image\/[a-z]+);base64,(.+)$/.exec(String(body.image ?? ''));
-  if (!m || !IMG_TYPES[m[1]]) throw new HttpError(400, 'Image PNG, JPG, WEBP ou GIF requise');
+  if (!m || !IMG_TYPES[m[1]]) throw new HttpError(400, 'A PNG, JPG, WEBP or GIF image is required');
   const img = Uint8Array.from(atob(m[2]), (c) => c.charCodeAt(0));
-  if (img.length > 1_000_000) throw new HttpError(400, 'Image trop lourde (1 Mo max)');
+  if (img.length > 1_000_000) throw new HttpError(400, 'Image too large (1 MB max)');
 
   const id = randomId();
   const imgFile = `${id}.${IMG_TYPES[m[1]]}`;
@@ -128,18 +128,18 @@ async function apiMetadata(env: Env, origin: string, body: any) {
 async function apiBuild(env: Env, origin: string, body: any) {
   const rpc = new Rpc(env.RPC_URL);
   const feeReceiver = pubkey(env.FEE_RECEIVER, 'FEE_RECEIVER');
-  const creator = pubkey(body.creator, 'Wallet');
-  const quoteMint = pubkey(body.quoteMint, 'Paire');
+  const creator = pubkey(body.creator, 'wallet');
+  const quoteMint = pubkey(body.quoteMint, 'pair');
   const name = clean(body.name, 32), ticker = clean(body.ticker, 10), uri = clean(body.uri, 200);
   const tier = Number(body.tier) as 0 | 1 | 2;
-  if (!uri.startsWith(`${origin}/m/`)) throw new HttpError(400, 'Métadonnées non hébergées par ce launchpad');
+  if (!uri.startsWith(`${origin}/m/`)) throw new HttpError(400, 'Metadata is not hosted by this launchpad');
   validateLaunch({ name, ticker, uri, tier });
 
   await checkFloatConfig(rpc);
-  if (!(await isQuoteEnabled(rpc, quoteMint))) throw new HttpError(400, "Cette paire n'est pas activée sur Float");
-  if (await isTickerTaken(rpc, ticker)) throw new HttpError(409, 'Ce ticker existe déjà sur Float (le reprendre coûte 2 SOL) : choisis-en un autre');
+  if (!(await isQuoteEnabled(rpc, quoteMint))) throw new HttpError(400, "This pair isn't enabled on Float");
+  if (await isTickerTaken(rpc, ticker)) throw new HttpError(409, 'This ticker already exists on Float (taking it over costs 2 SOL). Pick another one.');
   const quoteInfo = await rpc.getAccountInfo(quoteMint.toBase58());
-  if (!quoteInfo) throw new HttpError(400, 'Mint de la paire introuvable');
+  if (!quoteInfo) throw new HttpError(400, 'Pair mint not found');
 
   const nonce = new DataView(crypto.getRandomValues(new Uint8Array(8)).buffer).getBigUint64(0, true);
   const { ix, mint } = buildLaunchIx({ creator, feeReceiver, name, ticker, uri, quoteMint, quoteTokenProgram: new PublicKey(quoteInfo.owner), tier, nonce });
@@ -155,7 +155,7 @@ async function apiBuild(env: Env, origin: string, body: any) {
   if (sim.err) {
     const logs = (sim.logs ?? []).filter((l) => /Error|insufficient|failed/i.test(l)).slice(-3).join(' | ');
     const lowSol = /insufficient lamports|0x1\b/.test(logs) || JSON.stringify(sim.err).includes('AccountNotFound');
-    throw new HttpError(400, lowSol ? 'Pas assez de SOL sur ton wallet pour lancer' : `Simulation refusée par Float : ${logs || JSON.stringify(sim.err)}`);
+    throw new HttpError(400, lowSol ? 'Not enough SOL in your wallet to launch' : `Float rejected the simulation: ${logs || JSON.stringify(sim.err)}`);
   }
   const post = sim.accounts?.[0]?.lamports;
   return {
@@ -166,15 +166,15 @@ async function apiBuild(env: Env, origin: string, body: any) {
 
 async function apiConfirm(env: Env, origin: string, body: any) {
   const rpc = new Rpc(env.RPC_URL);
-  const mint = pubkey(body.mint, 'Mint');
+  const mint = pubkey(body.mint, 'mint');
   const signature = clean(body.signature, 100);
   let ls = null;
   for (let i = 0; i < 10 && !ls; i++) {
     ls = await readLaunchState(rpc, mint);
     if (!ls) await new Promise((r) => setTimeout(r, 2000));
   }
-  if (!ls) throw new HttpError(404, 'Lancement introuvable on-chain');
-  if (ls.feeReceiver !== env.FEE_RECEIVER) throw new HttpError(400, 'Ce coin ne reverse pas ses fees à ce launchpad');
+  if (!ls) throw new HttpError(404, 'Launch not found on-chain');
+  if (ls.feeReceiver !== env.FEE_RECEIVER) throw new HttpError(400, "This coin doesn't send its fees to this launchpad");
 
   const metaId = /\/m\/([\w-]+)\.json$/.exec(clean(body.uri, 200))?.[1];
   const meta = (metaId ? await env.FILES.get(`m/${metaId}.json`, 'json') : null) ?? ({} as any);
@@ -235,7 +235,7 @@ async function apiTrader(env: Env) {
 
 // ---------- Leaderboard FOMO (affichage) ----------
 async function apiLeaderboard(env: Env, window: string) {
-  if (!['24h', '7d', '30d'].includes(window)) throw new HttpError(400, 'Fenêtre : 24h, 7d ou 30d');
+  if (!['24h', '7d', '30d'].includes(window)) throw new HttpError(400, 'Window: 24h, 7d or 30d');
   const s = settings(env);
   const rows = await cached(`lb-${window}-v1`, 300, async () => {
     const url = new URL(s.leaderboardUrl);
@@ -244,7 +244,7 @@ async function apiLeaderboard(env: Env, window: string) {
     const headers: Record<string, string> = { Accept: 'application/json' };
     if (s.fomoApiKey) headers.Authorization = `Bearer ${s.fomoApiKey}`;
     const r = await fetch(url, { headers });
-    if (!r.ok) throw new HttpError(502, `Classement FOMO indisponible (HTTP ${r.status})`);
+    if (!r.ok) throw new HttpError(502, `FOMO leaderboard unavailable (HTTP ${r.status})`);
     const body = (await r.json()) as any;
     const data: any[] = Array.isArray(body.data) ? body.data : Array.isArray(body.traders) ? body.traders : [];
     return {
@@ -314,9 +314,9 @@ async function apiPnl(env: Env) {
 }
 
 async function apiAdmin(env: Env, req: Request, body: any) {
-  if (!env.ADMIN_TOKEN || req.headers.get('Authorization') !== `Bearer ${env.ADMIN_TOKEN}`) throw new HttpError(401, 'Non autorisé');
+  if (!env.ADMIN_TOKEN || req.headers.get('Authorization') !== `Bearer ${env.ADMIN_TOKEN}`) throw new HttpError(401, 'Unauthorized');
   const action = String(body.action ?? '');
-  if (!['start', 'pause', 'scan', 'fees'].includes(action)) throw new HttpError(400, 'action : start | pause | scan | fees');
+  if (!['start', 'pause', 'scan', 'fees'].includes(action)) throw new HttpError(400, 'action: start | pause | scan | fees');
   return engineCall(env, `/${action}`);
 }
 
@@ -329,16 +329,16 @@ export default {
     try {
       if (req.method === 'POST' && p.startsWith('/api/')) {
         const o = req.headers.get('Origin');
-        if (o && o !== origin && o !== url.origin && !p.startsWith('/api/admin/')) throw new HttpError(403, 'Origine refusée');
+        if (o && o !== origin && o !== url.origin && !p.startsWith('/api/admin/')) throw new HttpError(403, 'Origin not allowed');
         const len = Number(req.headers.get('Content-Length') ?? 0);
-        if (len > 2_000_000) throw new HttpError(413, 'Requête trop volumineuse');
+        if (len > 2_000_000) throw new HttpError(413, 'Request too large');
         let body: any;
-        try { body = await req.json(); } catch { throw new HttpError(400, 'JSON invalide'); }
+        try { body = await req.json(); } catch { throw new HttpError(400, 'Invalid JSON'); }
         if (p === '/api/metadata') return json(await apiMetadata(env, origin, body));
         if (p === '/api/launch/build') return json(await apiBuild(env, origin, body));
         if (p === '/api/launch/confirm') return json(await apiConfirm(env, origin, body));
         if (p === '/api/admin/engine') return json(await apiAdmin(env, req, body));
-        throw new HttpError(404, 'Introuvable');
+        throw new HttpError(404, 'Not found');
       }
       if (req.method === 'GET') {
         if (p === '/api/config') return json(await apiConfig(env));
@@ -350,13 +350,13 @@ export default {
         if (p === '/api/pnl') return json(await apiPnl(env));
         if (p === '/api/ticker') {
           const t = clean(url.searchParams.get('t'), 10);
-          if (!/^[A-Za-z0-9]{1,10}$/.test(t)) throw new HttpError(400, 'Ticker : 1 à 10 lettres ou chiffres');
+          if (!/^[A-Za-z0-9]{1,10}$/.test(t)) throw new HttpError(400, 'Ticker: 1 to 10 letters or digits');
           return json({ ticker: t.toUpperCase(), taken: await isTickerTaken(new Rpc(env.RPC_URL), t) });
         }
         const file = /^\/(m\/[\w-]+\.json|img\/[\w-]+\.(?:png|jpg|webp|gif))$/.exec(p);
         if (file) {
           const { value, metadata } = await env.FILES.getWithMetadata<{ contentType?: string }>(file[1], 'arrayBuffer');
-          if (!value) throw new HttpError(404, 'Introuvable');
+          if (!value) throw new HttpError(404, 'Not found');
           return new Response(value, { headers: {
             'Content-Type': metadata?.contentType ?? 'application/octet-stream',
             'Cache-Control': 'public, max-age=31536000, immutable',
@@ -364,10 +364,11 @@ export default {
           } });
         }
       }
-      if (p.startsWith('/api/')) throw new HttpError(405, 'Méthode non autorisée');
-      const PAGES: Record<string, string> = { '/': '/index.html', '/lancer': '/lancer.html', '/leaderboard': '/leaderboard.html', '/pnl': '/pnl.html' };
+      if (p.startsWith('/api/')) throw new HttpError(405, 'Method not allowed');
+      if (p === '/lancer' || p === '/lancer/') return Response.redirect(`${url.origin}/launch`, 301);
+      const PAGES: Record<string, string> = { '/': '/index.html', '/launch': '/launch.html', '/leaderboard': '/leaderboard.html', '/pnl': '/pnl.html' };
       const f = SITE[PAGES[p.replace(/\/$/, '') || '/'] ?? p];
-      if (!f || (req.method !== 'GET' && req.method !== 'HEAD')) return new Response('Introuvable', { status: 404 });
+      if (!f || (req.method !== 'GET' && req.method !== 'HEAD')) return new Response('Not found', { status: 404 });
       const etag = `"${f.etag}"`;
       const headers = {
         'Content-Type': f.type, ETag: etag, 'X-Content-Type-Options': 'nosniff',
@@ -378,7 +379,7 @@ export default {
     } catch (e) {
       const status = e instanceof HttpError ? e.status : 500;
       if (status === 500) console.error(e);
-      return json({ error: status === 500 ? `Erreur serveur : ${(e as Error).message}` : (e as Error).message }, status);
+      return json({ error: status === 500 ? `Server error: ${(e as Error).message}` : (e as Error).message }, status);
     }
   },
 

@@ -1,33 +1,35 @@
 <!doctype html>
-<html lang="fr">
+<html lang="en">
 <head>
-<title>Leaderboard FOMO · Copy Launch</title>
-<meta name="description" content="Le classement des traders FOMO par PnL, et le trader que le wallet du launchpad copie en ce moment.">
+<title>FOMO Leaderboard · Copy Launch</title>
+<meta name="description" content="FOMO's top traders ranked by PnL, and the trader the launchpad wallet is copying right now.">
 <!--#include head-->
 </head>
 <body>
 <!--#include header-->
-<main class="wrap" style="padding-bottom:40px">
+<main class="wrap">
   <div class="page-head">
-    <h1 style="font-size:clamp(36px,5.5vw,64px)">Leaderboard <span class="hl">FOMO</span></h1>
-    <p>Les meilleurs traders de FOMO par PnL. Le wallet du launchpad copie le n°1 de la fenêtre <b id="copied-window">24 h</b>, revérifié toutes les 5 h.</p>
+    <h1>Leaderboard</h1>
+    <p>FOMO's top traders ranked by PnL. The launchpad wallet copies the #1 trader on the <b id="copied-window">24h</b> board, re-checked every 5 hours.</p>
   </div>
   <div class="lb-tools">
-    <div class="windows" role="group" aria-label="Période">
-      <button type="button" data-w="24h" aria-pressed="true">24 h</button>
-      <button type="button" data-w="7d" aria-pressed="false">7 jours</button>
-      <button type="button" data-w="30d" aria-pressed="false">30 jours</button>
+    <div class="windows" role="group" aria-label="Time window">
+      <button type="button" data-w="24h" aria-pressed="true">24h</button>
+      <button type="button" data-w="7d" aria-pressed="false">7 days</button>
+      <button type="button" data-w="30d" aria-pressed="false">30 days</button>
     </div>
     <span class="source" id="source"></span>
   </div>
   <div class="podium" id="podium" aria-live="polite"></div>
-  <div class="tablewrap">
-    <table class="table" id="table" aria-label="Classement FOMO">
-      <thead><tr><th>#</th><th>Trader</th><th class="num">PnL</th><th class="num hide-sm">Volume</th><th class="num hide-sm">Trades</th><th class="hide-sm">Avoirs principaux</th><th class="hide-sm"><span class="sr">Wallet</span></th></tr></thead>
-      <tbody id="rows"></tbody>
-    </table>
+  <div class="card table-card">
+    <div class="tablewrap">
+      <table class="table" aria-label="FOMO leaderboard">
+        <thead><tr><th>Rank</th><th>Trader</th><th class="r">PnL</th><th class="r hide-sm">Volume</th><th class="r hide-sm">Trades</th><th class="hide-sm">Top holdings</th><th class="hide-sm"><span class="sr">Wallet</span></th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
   </div>
-  <p class="source" style="margin-top:16px">Chiffres tels que FOMO les affiche (PnL réalisé et latent mélangés), lus via une API tierce non officielle. Top 10 affiché.</p>
+  <p class="source" style="margin-top:14px">Figures as FOMO reports them (realized and unrealized combined), read through an unofficial third-party API. Top 10 shown.</p>
 </main>
 <!--#include footer-->
 <script type="module" src="/js/leaderboard.js"></script>

@@ -23,10 +23,10 @@ export async function fetchLeaderboard(s: Settings): Promise<Leader[]> {
   const headers: Record<string, string> = { Accept: 'application/json' };
   if (s.fomoApiKey) headers.Authorization = `Bearer ${s.fomoApiKey}`;
   const r = await fetch(url, { headers });
-  if (!r.ok) throw new Error(`Classement FOMO indisponible (HTTP ${r.status})`);
+  if (!r.ok) throw new Error(`FOMO leaderboard unavailable (HTTP ${r.status})`);
   const body = (await r.json()) as Record<string, any>;
   const rows: any[] = Array.isArray(body.data) ? body.data : Array.isArray(body.traders) ? body.traders : [];
-  if (!rows.length) throw new Error('Classement FOMO vide');
+  if (!rows.length) throw new Error('FOMO leaderboard is empty');
 
   const leaders: Leader[] = [];
   for (const row of rows) {
@@ -44,6 +44,6 @@ export async function fetchLeaderboard(s: Settings): Promise<Leader[]> {
       syncedAt: body.syncedAt ?? null,
     });
   }
-  if (!leaders.length) throw new Error('Aucun trader du classement n’a d’adresse Solana connue');
+  if (!leaders.length) throw new Error('No trader on the leaderboard has a known Solana address');
   return s.mode === 'TOP1' ? leaders.slice(0, 1) : leaders.slice(0, s.basketSize);
 }
