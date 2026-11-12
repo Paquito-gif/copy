@@ -91,6 +91,11 @@ html.anim .logo__c2 { animation: candle .6s cubic-bezier(.3, 1.5, .5, 1) .32s bo
 .pill { display: inline-flex; align-items: center; gap: 8px; height: 34px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--line); background: rgb(8 20 43 / .6); font: 500 13px/1 var(--sans); color: var(--ink); text-decoration: none; white-space: nowrap; }
 .wallet-btn { height: 38px; padding: 0 16px; white-space: nowrap; border-radius: 999px; border: 1px solid var(--line-hi); background: transparent; color: var(--ink); font: 500 13px/1 var(--mono); cursor: pointer; transition: border-color .2s, background .2s; }
 .wallet-btn:hover { border-color: var(--blue); background: rgb(61 139 255 / .08); }
+.icon-btn { width: 38px; height: 38px; flex: none; display: grid; place-items: center; border-radius: 50%; border: 1px solid var(--line-hi); color: var(--ink); transition: border-color .2s, background .2s, transform .25s var(--ease); }
+.icon-btn svg { width: 16px; height: 16px; }
+.icon-btn:hover { border-color: var(--blue); background: rgb(61 139 255 / .08); transform: rotate(-8deg) scale(1.06); }
+.foot__x { display: inline-flex; align-items: center; gap: 6px; }
+.foot__x svg { width: 13px; height: 13px; }
 .wallet-btn, .btn:not(.btn--ghost) { position: relative; overflow: hidden; }
 .wallet-btn::after, .btn:not(.btn--ghost)::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(105deg, transparent 35%, rgb(255 255 255 / .28) 50%, transparent 65%); transform: translateX(-120%); }
 .wallet-btn:hover::after, .btn:not(.btn--ghost):hover::after { transform: translateX(120%); transition: transform .7s cubic-bezier(.16, 1, .3, 1); }
