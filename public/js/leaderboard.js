@@ -1,4 +1,4 @@
-import { $, api, el, avatar, usd, ago, short, reveal, engineState, targetChip, countUsd, tilt, flash, every } from './common.js';
+import { $, api, el, avatar, usd, ago, short, reveal, engineState, targetChip, countUsd, tilt, flash, every, buildCoins } from './common.js';
 
 const LABEL = { '24h': '24h', '7d': '7-day', '30d': '30-day' };
 const vol = (n) => (n == null ? '–' : usd(n, { sign: false }));
@@ -12,7 +12,9 @@ function holdings(list) {
 }
 
 function render(lb, quiet = false) {
-  $('podium').replaceChildren(...lb.traders.slice(0, 3).map((t, i) => el('article', { class: `card pod pod--${i + 1}`, 'data-reveal': true },
+  const MEDAL = ['gold', 'silver', 'bronze'];
+  $('podium').replaceChildren(...lb.traders.slice(0, 3).map((t, i) => el('article', { class: `card card--ticks pod pod--${i + 1}`, 'data-reveal': true },
+    el('div', { class: `coin3d coin3d--medal coin3d--${MEDAL[i]}`, 'data-face': 'text', 'data-text': String(t.rank), 'aria-hidden': 'true' }),
     t.copied ? targetChip(state) : null,
     el('div', { class: 'pod__top' }, avatar(t.avatarUrl, t.handle),
       el('div', {}, el('span', { class: 'pod__rank' }, `RANK #${t.rank}`), el('div', { class: 'pod__name' }, `@${t.handle}`))),
@@ -53,6 +55,7 @@ function render(lb, quiet = false) {
     document.querySelectorAll('[data-reveal]').forEach((n) => n.classList.add('is-in'));
   }
   prev = new Map(lb.traders.map((t) => [t.handle, t.pnlUsd]));
+  buildCoins($('podium'));
   tilt(document.querySelectorAll('.pod'), 5);
   reveal();
 }

@@ -21,7 +21,7 @@
     <div class="stage">
       <div class="coin3d coin3d--blue" data-face="logo" aria-hidden="true"></div>
       <div class="coin3d coin3d--gold" data-face="burn" aria-hidden="true"></div>
-    <article class="card target tilt" aria-labelledby="tg-name">
+    <article class="card card--ticks target tilt" aria-labelledby="tg-name">
       <div class="target__head">
         <span class="avatar avatar--lg" id="tg-avatar" aria-hidden="true">?</span>
         <div class="target__who">
@@ -45,12 +45,26 @@
     </div>
   </section>
 
+  <section class="section feed-sec" aria-labelledby="feed-h">
+    <div class="card card--ticks feed" data-reveal>
+      <div class="feed__head">
+        <div>
+          <h2 class="feed__title" id="feed-h"><span class="tag-live"><i aria-hidden="true"></i>Live</span> <span id="feed-who">The #1 trader's wallet</span></h2>
+          <p class="feed__sub">Straight from Solana: what the wallet Flomo follows just did.</p>
+        </div>
+        <span class="slot mono" title="Latest confirmed Solana slot">Slot <b id="slot">–</b></span>
+      </div>
+      <ol class="feed__list" id="feed" aria-live="polite"><li class="feed__empty">Reading the wallet's latest transactions…</li></ol>
+    </div>
+  </section>
+
   <section class="section circuit" aria-labelledby="circuit-h">
     <div class="head" data-reveal>
       <h2 id="circuit-h">Where your coin's fees go</h2>
       <p>Read live from the Float program and the public wallet. Every trade, buyback and burn is a Solana transaction you can check.</p>
     </div>
-    <div class="card circuit__card">
+    <div class="card card--ticks circuit__card">
+      <a class="card__id mono" href="https://solscan.io/account/3KguFi7YYzLgttG46fRism16CfcuNCkDh6U7td9JTqxX" target="_blank" rel="noopener">Float program · 3Kgu…TqxX ↗</a>
       <ol class="flow" data-seq>
         <li class="flow__node">
           <span class="flow__icons" id="fl-icons" aria-hidden="true"></span>
@@ -68,7 +82,7 @@
           <span id="fl-rules">Position and loss limits on every copy</span>
         </li>
         <li class="flow__node">
-          <span class="flow__badge flow__badge--burn" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22c4 0 7-2.7 7-6.6 0-4.4-4.2-6.4-5-11.4-2.6 1.8-4.2 4.5-4.2 7.2-1-.8-1.6-2-1.8-3.2C6.6 9.6 5 12.3 5 15.4 5 19.3 8 22 12 22z"/></svg></span>
+          <span class="flow__badge flow__badge--burn" aria-hidden="true"><span class="embers"><i></i><i></i><i></i></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22c4 0 7-2.7 7-6.6 0-4.4-4.2-6.4-5-11.4-2.6 1.8-4.2 4.5-4.2 7.2-1-.8-1.6-2-1.8-3.2C6.6 9.6 5 12.3 5 15.4 5 19.3 8 22 12 22z"/></svg></span>
           <b><span id="fl-burn">80%</span> of profits buy back and burn</b>
           <span>Each coin in proportion to its fees · <span id="fl-burned">–</span> so far</span>
         </li>

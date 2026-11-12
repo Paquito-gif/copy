@@ -1,5 +1,5 @@
 /* global solanaWeb3 */
-import { $, api, el, fmt, walletState, connectWallet, config } from './common.js';
+import { $, api, el, fmt, walletState, connectWallet, config, coinFace } from './common.js';
 
 let imageData = null, cfg = null, quotes = [], pending = null, tickerTaken = false, tickerTimer = null, filter = 'all';
 const isCrypto = (q) => q.symbol === 'SOL' || q.symbol === 'USDC';
@@ -8,9 +8,16 @@ const status = (msg, kind = '') => { const s = $('status'); s.replaceChildren(..
 const noWallet = () => ['No Solana wallet found. ', el('a', { href: 'https://phantom.com/download', target: '_blank', rel: 'noopener' }, 'Get Phantom'), ', then reload the page.'];
 
 // ---------- live preview ----------
+function flipCoin() {
+  const c = $('pv-img');
+  c.classList.remove('is-flip');
+  requestAnimationFrame(() => c.classList.add('is-flip'));
+}
+
 function preview() {
   const t = $('ticker').value;
   $('pv-ticker').textContent = t ? `$${t}` : '$TICKER';
+  if (!imageData) coinFace($('pv-img'), t ? t.slice(0, 1) : '?');
   $('pv-name').textContent = $('name').value.trim() || 'Your coin';
   const q = quotes.find((x) => x.mint === $('quote').value);
   $('pv-pair').textContent = q ? q.symbol : '–';
@@ -67,7 +74,8 @@ $('image').addEventListener('change', () => {
   r.onload = () => {
     imageData = r.result;
     $('thumb').replaceChildren(el('img', { src: imageData, alt: '' }));
-    $('pv-img').replaceChildren(el('img', { src: imageData, alt: '' }));
+    coinFace($('pv-img'), imageData, true);
+    flipCoin();
     setErr('image', '');
   };
   r.readAsDataURL(f);
@@ -192,7 +200,7 @@ $('dn-again').addEventListener('click', () => {
   stage('form');
   $('form').reset();
   $('thumb').replaceChildren(el('span', { class: 'hint' }, '+'));
-  $('pv-img').replaceChildren('?');
+  coinFace($('pv-img'), '?');
   ['image', 'name', 'ticker', 'ack'].forEach((f) => setErr(f, ''));
   selectPair(quotes[0]?.mint); selectTier(0); $('dn-copy').textContent = 'Copy mint address';
 });

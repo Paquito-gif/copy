@@ -107,8 +107,67 @@ async function circuit() {
   }
 }
 
-target().catch(() => { $('tg-meta').textContent = 'Leaderboard unavailable right now'; });
-circuit().catch((e) => console.error('circuit', e));
+// ---------- live wallet feed ----------
+const ICON = {
+  swap: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4 3 8l4 4M3 8h14M17 20l4-4-4-4M21 16H7"/></svg>',
+  send: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M8 7h9v9"/></svg>',
+  receive: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 7 7 17M16 17H7V8"/></svg>',
+};
+const VERB = { swap: 'Swapped', send: 'Sent', receive: 'Received' };
+const amt = (n) => {
+  const a = Math.abs(n);
+  if (a >= 1e6) return a.toLocaleString('en-US', { notation: 'compact', maximumFractionDigits: 2 });
+  if (a >= 100) return a.toLocaleString('en-US', { maximumFractionDigits: 0 });
+  return a.toLocaleString('en-US', { maximumSignificantDigits: 4 });
+};
+const tokenImg = (l) => (l.icon ? el('img', { src: l.icon, alt: '', loading: 'lazy', referrerpolicy: 'no-referrer', onerror: (e) => e.target.remove() }) : el('span', { class: 'feed__noicon' }, l.symbol.slice(0, 1)));
+let seen = new Set();
+
+function feedItem(x, fresh) {
+  const legs = x.legs.map((l) => `${amt(l.amount)} ${l.symbol}`);
+  const kind = el('span', { class: 'feed__kind', 'aria-hidden': 'true' }); kind.innerHTML = ICON[x.kind];
+  return el('li', { class: `feed__item feed__item--${x.kind}${fresh ? ' is-new' : ''}` },
+    kind,
+    el('span', { class: 'feed__icons', 'aria-hidden': 'true' }, x.legs.map(tokenImg)),
+    el('span', { class: 'feed__text' }, el('b', {}, VERB[x.kind]), ' ', legs.join(' → ')),
+    el('span', { class: 'feed__time', 'data-t': x.t }, ago(x.t)),
+    el('a', { class: 'feed__tx', href: `https://solscan.io/tx/${x.sig}`, target: '_blank', rel: 'noopener', 'aria-label': 'Transaction on Solscan' }, 'tx ↗'));
+}
+
+async function feed() {
+  const d = await api('/api/trades');
+  if (d.handle) $('feed-who').textContent = `@${d.handle}'s wallet`;
+  const list = $('feed');
+  if (!d.items?.length) {
+    if (!seen.size) list.replaceChildren(el('li', { class: 'feed__empty' }, 'No recent activity on this wallet yet.'));
+    return;
+  }
+  const first = !seen.size;
+  const nodes = d.items.map((x, i) => {
+    const n = feedItem(x, !first && !seen.has(x.sig));
+    if (first) n.style.setProperty('--i', i);
+    return n;
+  });
+  list.replaceChildren(...nodes);
+  list.classList.toggle('is-first', first);
+  seen = new Set(d.items.map((x) => x.sig));
+}
+every(30_000, () => document.querySelectorAll('.feed__time').forEach((n) => { n.textContent = ago(Number(n.dataset.t)); }));
+
+// ---------- Solana slot: real value every few seconds, ~400 ms per slot in between ----------
+let base = null;
+async function syncSlot() { try { base = await api('/api/slot'); } catch { /* keep counting */ } }
+syncSlot().then(() => {
+  const n = $('slot');
+  setInterval(() => { if (base) n.textContent = (base.slot + Math.max(0, Math.floor((Date.now() - base.at) / 400))).toLocaleString('en-US'); }, 400);
+});
+every(8_000, syncSlot);
+
+every(75_000, () => feed().catch(() => {}));
+
+const first = [target().catch(() => { $('tg-meta').textContent = 'Leaderboard unavailable right now'; }), circuit().catch((e) => console.error('circuit', e))];
+// the wallet feed is the heaviest call: start it once the rest has answered
+Promise.allSettled(first).then(() => feed().catch(() => { $('feed').replaceChildren(el('li', { class: 'feed__empty' }, 'The wallet feed is unavailable right now.')); }));
 
 tilt(document.querySelectorAll('.target'), 6);
 every(60_000, refresh);

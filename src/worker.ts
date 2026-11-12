@@ -6,6 +6,7 @@
 import { ComputeBudgetProgram, PublicKey, TransactionMessage, VersionedTransaction } from '@solana/web3.js';
 import { type Env, settings, SOL_MINT, USDC_MINT } from './lib/env.js';
 import { SITE } from './site.gen.js';
+import { detectSwap } from './lib/detect.js';
 import { Rpc, LAMPORTS_PER_SOL, b64 } from './lib/rpc.js';
 import { getQuote } from './lib/jupiter.js';
 import {
@@ -237,6 +238,87 @@ async function apiTrader(env: Env) {
   });
 }
 
+// ---------- Live feed: the followed trader's latest swaps ----------
+async function tokenMeta(mint: string): Promise<{ symbol: string; icon: string | null }> {
+  const fallback = { symbol: `${mint.slice(0, 4)}…`, icon: null };
+  try {
+    return await cached(`tok2-${mint}`, 86_400, async () => {
+      const r = await fetch(`https://lite-api.jup.ag/tokens/v2/search?query=${mint}`, { headers: { Accept: 'application/json' } });
+      if (!r.ok) throw new Error(`jupiter ${r.status}`);
+      const t = ((await r.json()) as any[]).find((x) => x.id === mint);
+      if (!t) throw new Error('unknown token'); // not cached: retried next time
+      return { symbol: t.symbol as string, icon: (t.icon as string) ?? null };
+    });
+  } catch { return fallback; }
+}
+
+/** What a transaction did to one wallet: a swap, a send or a receive (largest legs only). */
+function summarize(tx: any, owner: string) {
+  const meta = tx?.meta;
+  if (!meta || meta.err) return null;
+  const keys: string[] = (tx.transaction?.message?.accountKeys ?? []).map((k: any) => (typeof k === 'string' ? k : k.pubkey));
+  const i = keys.indexOf(owner);
+  const d = new Map<string, number>();
+  if (i >= 0) {
+    let lamports = meta.postBalances[i] - meta.preBalances[i];
+    if (i === 0) lamports += meta.fee ?? 0; // ignore the network fee
+    d.set(SOL_MINT, lamports / 1e9);
+  }
+  for (const [list, sign] of [[meta.preTokenBalances ?? [], -1], [meta.postTokenBalances ?? [], 1]] as const) {
+    for (const b of list as any[]) if (b.owner === owner) d.set(b.mint, (d.get(b.mint) ?? 0) + sign * Number(b.uiTokenAmount?.uiAmount ?? 0));
+  }
+  const legs = [...d].filter(([m, v]) => Math.abs(v) > (m === SOL_MINT ? 0.002 : 1e-6)).sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]));
+  const out = legs.find(([, v]) => v < 0), inn = legs.find(([, v]) => v > 0);
+  if (out && inn) return { kind: 'swap', legs: [out, inn] };
+  if (out) return { kind: 'send', legs: [out] };
+  if (inn) return { kind: 'receive', legs: [inn] };
+  return null;
+}
+
+async function buildTrades(env: Env) {
+  {
+    const st = await engineState(env);
+    const top = st.leader?.current?.[0];
+    const address = top?.wallets?.[0] ?? st.wallets?.[0] ?? null;
+    if (!address) return { address: null, handle: null, items: [] };
+    const rpc = new Rpc(env.RPC_URL);
+    const sigs = (await rpc.getSignatures(address, { limit: 8 })).filter((x) => !x.err);
+    const items: any[] = [];
+    for (const sg of sigs) { // sequential: the free RPC rate-limits bursts
+      if (items.length >= 6) break;
+      const tx = await rpc.getParsedTransaction(sg.signature).catch(() => null);
+      const sum = tx && summarize(tx, address);
+      if (sum) items.push({ sig: sg.signature, t: (sg.blockTime ?? 0) * 1000, ...sum });
+    }
+    const mints = [...new Set(items.flatMap((x) => x.legs.map(([m]: [string]) => m)))];
+    const meta = new Map(await Promise.all(mints.map(async (m) => [m, await tokenMeta(m)] as const)));
+    return {
+      address, handle: top?.handle ?? null,
+      items: items.map((x) => ({ ...x, legs: x.legs.map(([m, v]: [string, number]) => ({ mint: m, amount: v, ...meta.get(m) })) })),
+    };
+  }
+}
+
+/** Stale-while-revalidate in KV: answer at once, refresh in the background (one refresh at a time). */
+async function apiTrades(env: Env, ctx: ExecutionContext) {
+  const KEY = 'feed:trades:v1', LOCK = 'feed:trades:lock';
+  const cur = await env.FILES.get<any>(KEY, 'json');
+  if (cur && Date.now() - cur.at < 75_000) return cur;
+  const refresh = async () => {
+    if (await env.FILES.get(LOCK)) return;
+    await env.FILES.put(LOCK, '1', { expirationTtl: 60 });
+    try { await env.FILES.put(KEY, JSON.stringify({ ...(await buildTrades(env)), at: Date.now() })); }
+    finally { await env.FILES.delete(LOCK); }
+  };
+  if (cur) { ctx.waitUntil(refresh().catch(() => {})); return cur; }
+  await refresh().catch(() => {});
+  return (await env.FILES.get<any>(KEY, 'json')) ?? { address: null, handle: null, items: [] };
+}
+
+async function apiSlot(env: Env) {
+  return cached('slot-v1', 4, async () => ({ slot: await new Rpc(env.RPC_URL).getSlot(), at: Date.now() }));
+}
+
 // ---------- Leaderboard FOMO (affichage) ----------
 async function apiLeaderboard(env: Env, window: string) {
   if (!['24h', '7d', '30d'].includes(window)) throw new HttpError(400, 'Window: 24h, 7d or 30d');
@@ -326,7 +408,7 @@ async function apiAdmin(env: Env, req: Request, body: any) {
 
 // ---------- routeur ----------
 export default {
-  async fetch(req: Request, env: Env): Promise<Response> {
+  async fetch(req: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(req.url);
     const p = url.pathname;
     const origin = (env.PUBLIC_URL || url.origin).replace(/\/$/, '');
@@ -350,6 +432,8 @@ export default {
         if (p === '/api/coins') return json(await apiCoins(env));
         if (p === '/api/stats') return json(await apiStats(env));
         if (p === '/api/trader') return json(await apiTrader(env));
+        if (p === '/api/trades') return json(await apiTrades(env, ctx));
+        if (p === '/api/slot') return json(await apiSlot(env));
         if (p === '/api/leaderboard') return json(await apiLeaderboard(env, url.searchParams.get('window') || '24h'));
         if (p === '/api/pnl') return json(await apiPnl(env));
         if (p === '/api/ticker') {

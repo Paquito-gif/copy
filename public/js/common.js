@@ -133,16 +133,23 @@ const FACES = {
   logo: '<svg viewBox="0 0 32 32"><rect x="7" y="9" width="7" height="16" rx="2" fill="currentColor"/><path d="M10.5 5v4M10.5 25v3" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><rect x="18" y="5" width="7" height="16" rx="2" fill="currentColor" opacity=".6"/><path d="M21.5 2v3M21.5 21v4" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" opacity=".6"/></svg>',
   burn: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22c4 0 7-2.7 7-6.6 0-4.4-4.2-6.4-5-11.4-2.6 1.8-4.2 4.5-4.2 7.2-1-.8-1.6-2-1.8-3.2C6.6 9.6 5 12.3 5 15.4 5 19.3 8 22 12 22z"/></svg>',
 };
-/** Builds a real 3D coin: two faces and a stack of rim layers for thickness. */
-function buildCoins() {
-  document.querySelectorAll('.coin3d:empty').forEach((c) => {
+/** Builds a real 3D coin: two faces and a stack of rim layers for thickness.
+    data-face: logo | burn | text (with data-text). Faces can be swapped later with coinFace(). */
+export function buildCoins(root = document) {
+  root.querySelectorAll('.coin3d:empty').forEach((c) => {
     const body = el('div', { class: 'coin3d__body' });
     for (let z = -5; z <= 5; z++) body.append(el('i', { style: `transform: translateZ(${z * 0.9}px)` }));
-    const face = FACES[c.dataset.face] ?? FACES.logo;
-    const front = el('b', { class: 'coin3d__face' }); front.innerHTML = face;
-    const back = el('b', { class: 'coin3d__face coin3d__face--back' }); back.innerHTML = face;
-    body.append(front, back);
+    body.append(el('b', { class: 'coin3d__face' }), el('b', { class: 'coin3d__face coin3d__face--back' }));
     c.append(body);
+    coinFace(c, c.dataset.face === 'text' ? (c.dataset.text ?? '') : null);
+  });
+}
+/** Sets both faces of a coin: a string, an image URL (when isImage), or the coin's default symbol. */
+export function coinFace(coin, content, isImage = false) {
+  coin.querySelectorAll('.coin3d__face').forEach((f) => {
+    if (isImage) f.replaceChildren(el('img', { src: content, alt: '' }));
+    else if (content != null) f.replaceChildren(el('span', { class: 'coin3d__text' }, content));
+    else f.innerHTML = FACES[coin.dataset.face] ?? FACES.logo;
   });
 }
 
@@ -253,8 +260,15 @@ function initNavPill() {
   nav.addEventListener('pointerleave', () => pill.classList.remove('is-on'));
 }
 
-/** Card borders light up where the pointer is. */
+/** Card borders light up where the pointer is; the background grid follows it too. */
 function initSpotlight() {
+  if (motionOK) {
+    let r2 = 0;
+    addEventListener('pointermove', (ev) => {
+      if (r2) return;
+      r2 = requestAnimationFrame(() => { r2 = 0; document.documentElement.style.setProperty('--cx', `${ev.clientX}px`); document.documentElement.style.setProperty('--cy', `${ev.clientY}px`); });
+    }, { passive: true });
+  }
   if (!motionOK || !matchMedia('(hover: hover) and (pointer: fine)').matches) return;
   let raf = 0, e = null;
   addEventListener('pointermove', (ev) => {

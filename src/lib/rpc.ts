@@ -102,6 +102,10 @@ export class Rpc {
     throw new Error(`Transaction non confirmée à temps : ${signature}`);
   }
 
+  async getSlot(): Promise<number> {
+    return this.call<number>('getSlot', [{ commitment: 'confirmed' }]);
+  }
+
   async getSignatures(address: string, opts: { limit?: number; until?: string } = {}) {
     return this.call<{ signature: string; slot: number; err: unknown; blockTime: number | null }[]>(
       'getSignaturesForAddress', [address, { limit: opts.limit ?? 20, until: opts.until, commitment: 'confirmed' }]);
