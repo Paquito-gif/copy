@@ -199,10 +199,11 @@ a.card:hover { border-color: var(--line-hi); }
 .circuit { position: relative; }
 .circuit::before { content: ""; position: absolute; left: 50%; top: 30%; width: 70%; height: 60%; transform: translateX(-50%); z-index: -1; background: radial-gradient(closest-side, rgb(81 106 246 / .14), transparent); filter: blur(40px); pointer-events: none; }
 .coin3d { position: absolute; width: var(--s); height: var(--s); pointer-events: none; transform-style: preserve-3d; }
-.coin3d--blue { --s: 104px; --rim: #1a49a8; z-index: 3; top: -46px; left: -44px; transform: translateY(calc(var(--sy, 0) * -0.06px)) rotateX(calc(14deg + var(--sy, 0) * 0.04deg)) rotateZ(-12deg); }
-.coin3d--gold { --s: 70px; --rim: #a87412; z-index: 0; right: -26px; bottom: -34px; filter: blur(.6px) brightness(.9); transform: translateY(calc(var(--sy, 0) * 0.05px)) rotateX(-18deg) rotateZ(14deg); }
+.coin3d--blue { --rim: #1a49a8; } .coin3d--gold { --rim: #a87412; }
+.stage .coin3d--blue { --s: 104px; --rim: #1a49a8; z-index: 3; top: -46px; left: -44px; transform: translateY(calc(var(--sy, 0) * -0.06px)) rotateX(calc(14deg + var(--sy, 0) * 0.04deg)) rotateZ(-12deg); }
+.stage .coin3d--gold { --s: 70px; --rim: #a87412; z-index: 0; right: -26px; bottom: -34px; filter: blur(.6px) brightness(.9); transform: translateY(calc(var(--sy, 0) * 0.05px)) rotateX(-18deg) rotateZ(14deg); }
 .coin3d__body { position: absolute; inset: 0; transform-style: preserve-3d; animation: coinspin 8s linear infinite; }
-.coin3d--gold .coin3d__body { animation-duration: 11s; animation-direction: reverse; }
+.stage .coin3d--gold .coin3d__body { animation-duration: 11s; animation-direction: reverse; }
 .coin3d__body i { position: absolute; inset: 0; border-radius: 50%; background: var(--rim); }
 .coin3d__face { position: absolute; inset: 0; border-radius: 50%; display: grid; place-items: center; transform: translateZ(5px); backface-visibility: hidden; color: #fff;
   background: radial-gradient(circle at 32% 26%, #b9d4ff 0, #5b9dff 30%, #2563eb 62%, #173f9e 100%);
@@ -215,7 +216,8 @@ a.card:hover { border-color: var(--line-hi); }
 .coin3d .coin3d__face { display: grid; place-items: center; overflow-wrap: normal; font-size: inherit; }
 .coin3d .coin3d__face .coin3d__text { color: inherit; font: 800 calc(var(--s) * .42)/1 var(--display); font-stretch: 125%; letter-spacing: -0.04em; text-shadow: 0 1px 0 rgb(0 0 0 / .25); }
 /* podium medals */
-.coin3d--medal { --s: 50px; z-index: 2; top: -20px; right: 22px; transform: rotateX(10deg); }
+.coin3d--medal { --s: 48px; z-index: 2; top: 18px; right: 20px; transform: translateZ(60px) rotateX(8deg); }
+.pod:not(.tilt) .coin3d--medal { transform: rotateX(8deg); }
 .coin3d--medal .coin3d__body, .coin3d--preview .coin3d__body { animation: coinrock 3.2s ease-in-out infinite alternate; }
 .pod--2 .coin3d__body { animation-delay: -1s; } .pod--3 .coin3d__body { animation-delay: -2s; }
 @keyframes coinrock { from { transform: rotateY(-38deg); } to { transform: rotateY(38deg); } }
@@ -225,8 +227,6 @@ a.card:hover { border-color: var(--line-hi); }
 .coin3d--silver .coin3d__face { color: #3b4250; background: radial-gradient(circle at 32% 26%, #ffffff 0, #dfe5ee 32%, #aab4c4 66%, #7c8698 100%); box-shadow: inset 0 0 0 3px rgb(255 255 255 / .5), inset 0 0 0 7px rgb(60 70 90 / .2), inset 0 -8px 14px rgb(40 50 70 / .3); }
 .coin3d--bronze { --rim: #8a4b1c; }
 .coin3d--bronze .coin3d__face { color: #4a2408; background: radial-gradient(circle at 32% 26%, #ffe0c2 0, #f0a46a 32%, #c56f30 66%, #8a4b1c 100%); box-shadow: inset 0 0 0 3px rgb(255 255 255 / .35), inset 0 0 0 7px rgb(90 40 10 / .2), inset 0 -8px 14px rgb(70 30 0 / .3); }
-.pod .chip { right: 86px; }
-@media (max-width: 860px) { .pod .chip { right: 84px; } }
 /* launch preview: the coin wears your image */
 .coin3d--preview { --s: 56px; --rim: #1a49a8; position: relative; flex: none; }
 .coin3d--preview.is-flip .coin3d__body { animation: coinflip 1s cubic-bezier(.3, 1.3, .5, 1), coinrock 3.2s ease-in-out 1s infinite alternate; }
@@ -234,8 +234,8 @@ a.card:hover { border-color: var(--line-hi); }
 /* PnL corner coin */
 .coin3d--corner { --s: 64px; z-index: 2; top: -24px; right: 26px; transform: rotateX(12deg) rotateZ(10deg); }
 @media (max-width: 900px) {
-  .coin3d--blue { --s: 72px; top: -30px; left: auto; right: 18px; }
-  .coin3d--gold { --s: 50px; right: auto; left: -10px; bottom: -22px; }
+  .stage .coin3d--blue { --s: 72px; top: -30px; left: auto; right: 18px; }
+  .stage .coin3d--gold { --s: 50px; right: auto; left: -10px; bottom: -22px; }
 }
 
 /* pointer tilt with a sheen that follows the cursor */
@@ -520,7 +520,7 @@ html.anim .split:not(.is-in) .split__bar i { animation: none; transform: scaleX(
 .pod__pnl { font: 700 30px/1 var(--sans); letter-spacing: -0.04em; font-variant-numeric: tabular-nums; }
 .pod__meta { display: flex; flex-wrap: wrap; gap: 6px 16px; color: var(--muted); font-size: 13px; }
 .pod__meta .linkbtn { font-size: 13px; }
-.pod .chip { position: absolute; top: 18px; right: 18px; }
+.pod .chip { position: absolute; top: 30px; right: 80px; }
 @media (max-width: 860px) { .podium { grid-template-columns: 1fr; } }
 .table-card { overflow: hidden; }
 .tablewrap { overflow-x: auto; }
