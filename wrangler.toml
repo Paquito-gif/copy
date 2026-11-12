@@ -33,7 +33,7 @@ enabled = true
 
 [vars]
 FEE_RECEIVER = "Hd4UDXk3jBbKtuN4WHP96UWqfzzqhRcrqk1gjSzV9yRs"
-SITE_NAME = "Copy Launch"
+SITE_NAME = "Flomo"
 TRADER_SOURCE = "fomo"
 LEADERBOARD_WINDOW = "24h"
 MODE = "TOP1"

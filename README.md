@@ -1,4 +1,4 @@
-# Copy Launch : launchpad sur Float, 100 % Cloudflare
+# Flomo : launchpad sur Float, 100 % Cloudflare
 
 Un launchpad qui lance de **vrais coins Float** (Raydium LaunchLab ; paires SOL, USDC et actions tokenisées).
 Chaque coin est lancé avec `fee_receiver` = **le wallet public du launchpad**. La part créateur des fees (5 % du fee Float) arrive donc dans ce wallet. Le wallet **copie le n°1 du classement FOMO**, et les profits **rachètent et brûlent les coins** au prorata des fees que chacun a générés.

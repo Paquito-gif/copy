@@ -46,7 +46,7 @@ export function settings(env: Env) {
   const n = (v: string | undefined, d: number) => (v != null && v !== '' && !Number.isNaN(Number(v)) ? Number(v) : d);
   return {
     feeReceiver: env.FEE_RECEIVER,
-    siteName: env.SITE_NAME || 'Copy Launch',
+    siteName: env.SITE_NAME || 'Flomo',
     traderSource: (env.TRADER_SOURCE || 'fomo') as 'fomo' | 'env',
     traders: (env.TRADERS || '').split(',').map((s) => s.trim()).filter(Boolean),
     mode: (env.MODE || 'TOP1') as 'TOP1' | 'BASKET',
