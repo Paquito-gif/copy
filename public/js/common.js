@@ -90,15 +90,91 @@ export function countTo(node, value, { decimals = 3, prefix = '', suffix = '', s
   requestAnimationFrame(step);
 }
 
-/** Fade-in on scroll; everything is visible without JS or with reduced motion. */
+/** Scroll reveals: [data-reveal] blocks rise into place, [data-seq] groups play their children in order. */
 export function reveal(root = document) {
-  const items = root.querySelectorAll('[data-reveal]:not(.is-in)');
+  const items = root.querySelectorAll('[data-reveal]:not(.is-in), [data-seq]:not(.is-in)');
   if (!motionOK || !('IntersectionObserver' in window)) { items.forEach((n) => n.classList.add('is-in')); return; }
   const io = new IntersectionObserver((entries) => {
     for (const e of entries) if (e.isIntersecting) { e.target.classList.add('is-in'); io.unobserve(e.target); }
-  }, { rootMargin: '0px 0px -6% 0px' });
-  items.forEach((n, i) => { if (!n.style.getPropertyValue('--delay')) n.style.setProperty('--delay', `${(i % 4) * 60}ms`); io.observe(n); });
-  setTimeout(() => items.forEach((n) => n.classList.add('is-in')), 4000); // safety net for previews and captures
+  }, { rootMargin: '0px 0px -12% 0px' });
+  let i = 0;
+  items.forEach((n) => {
+    if (n.hasAttribute('data-reveal') && !n.style.getPropertyValue('--delay')) n.style.setProperty('--delay', `${(i++ % 5) * 70}ms`);
+    io.observe(n);
+  });
+  setTimeout(() => items.forEach((n) => n.classList.add('is-in')), 6000); // safety net for previews and captures
+}
+
+/** Counts a USD figure up from zero, keeping the compact format. */
+export function countUsd(node, value) {
+  if (!motionOK || !Number.isFinite(value)) { node.textContent = usd(value); return; }
+  const start = performance.now(), dur = 1300;
+  const step = (now) => {
+    const k = Math.min(1, (now - start) / dur);
+    node.textContent = usd(value * (1 - Math.pow(1 - k, 4)));
+    if (k < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
+// ---------- 3D details ----------
+const FACES = {
+  logo: '<svg viewBox="0 0 32 32" fill="none"><rect x="5" y="10" width="14" height="14" rx="4" stroke="currentColor" stroke-width="2.6"/><path d="M13 19 26 6m-7.5 0H26v7.5" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  burn: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22c4 0 7-2.7 7-6.6 0-4.4-4.2-6.4-5-11.4-2.6 1.8-4.2 4.5-4.2 7.2-1-.8-1.6-2-1.8-3.2C6.6 9.6 5 12.3 5 15.4 5 19.3 8 22 12 22z"/></svg>',
+};
+/** Builds a real 3D coin: two faces and a stack of rim layers for thickness. */
+function buildCoins() {
+  document.querySelectorAll('.coin3d:empty').forEach((c) => {
+    const body = el('div', { class: 'coin3d__body' });
+    for (let z = -5; z <= 5; z++) body.append(el('i', { style: `transform: translateZ(${z * 0.9}px)` }));
+    const face = FACES[c.dataset.face] ?? FACES.logo;
+    const front = el('b', { class: 'coin3d__face' }); front.innerHTML = face;
+    const back = el('b', { class: 'coin3d__face coin3d__face--back' }); back.innerHTML = face;
+    body.append(front, back);
+    c.append(body);
+  });
+}
+
+/** Card leans toward the pointer, with a light sheen that follows it. Fine pointers only. */
+export function tilt(nodes, max = 7) {
+  if (!motionOK || !matchMedia('(hover: hover) and (pointer: fine)').matches) return;
+  nodes.forEach((n) => {
+    if (n.dataset.tilt) return;
+    n.dataset.tilt = '1';
+    n.classList.add('tilt');
+    let raf = 0;
+    n.addEventListener('pointermove', (e) => {
+      const r = n.getBoundingClientRect();
+      const x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        n.style.setProperty('--ry', `${(x - 0.5) * max * 2}deg`);
+        n.style.setProperty('--rx', `${(0.5 - y) * max * 2}deg`);
+        n.style.setProperty('--mx', `${x * 100}%`);
+        n.style.setProperty('--my', `${y * 100}%`);
+        n.classList.add('is-tilting');
+      });
+    });
+    n.addEventListener('pointerleave', () => {
+      cancelAnimationFrame(raf);
+      n.classList.remove('is-tilting');
+      n.style.setProperty('--rx', '0deg'); n.style.setProperty('--ry', '0deg');
+    });
+  });
+}
+
+/** Scroll-linked values: --sy on the root (px scrolled), sticky header state. */
+function scrollFx() {
+  const root = document.documentElement, top = document.querySelector('.top');
+  let ticking = false;
+  const update = () => {
+    ticking = false;
+    const y = scrollY;
+    if (motionOK) root.style.setProperty('--sy', String(Math.min(y, 1600)));
+    top?.classList.toggle('is-scrolled', y > 8);
+  };
+  addEventListener('scroll', () => { if (!ticking) { ticking = true; requestAnimationFrame(update); } }, { passive: true });
+  update();
 }
 
 // ---------- wallet ----------
@@ -164,6 +240,8 @@ function initMenu() {
   document.addEventListener('click', (e) => { if (!nav.contains(e.target) && !btn.contains(e.target)) set(false); });
 }
 
+buildCoins();
+scrollFx();
 markActive();
 initMenu();
 initEngineStatus();

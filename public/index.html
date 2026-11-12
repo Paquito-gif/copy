@@ -10,7 +10,7 @@
 <main class="wrap">
   <section class="hero2">
     <div class="hero2__copy">
-      <h1>Launch a coin. <span>Its fees copy FOMO's #1.</span></h1>
+      <h1><span class="line"><span>Launch a coin.</span></span> <span class="line line--2"><span>Its fees copy FOMO's&nbsp;#1.</span></span></h1>
       <p class="hero__lead">Creator fees from every coin go to one public wallet. It mirrors FOMO's top trader, and <span id="hero-burn">80%</span> of the profits buy back and burn your coins.</p>
       <div class="hero__ctas">
         <a class="btn" href="/launch">Launch a coin <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
@@ -18,7 +18,10 @@
       </div>
     </div>
 
-    <article class="card target" aria-labelledby="tg-name">
+    <div class="stage">
+      <div class="coin3d coin3d--blue" data-face="logo" aria-hidden="true"></div>
+      <div class="coin3d coin3d--gold" data-face="burn" aria-hidden="true"></div>
+    <article class="card target tilt" aria-labelledby="tg-name">
       <div class="target__head">
         <span class="avatar avatar--lg" id="tg-avatar" aria-hidden="true">?</span>
         <div class="target__who">
@@ -39,15 +42,16 @@
       <p class="target__addr">Wallet <a class="mono" id="tg-addr" target="_blank" rel="noopener">–</a></p>
       <p class="target__foot" id="tg-foot">The pick is re-checked every 5 hours.</p>
     </article>
+    </div>
   </section>
 
   <section class="section circuit" aria-labelledby="circuit-h">
-    <div class="head">
+    <div class="head" data-reveal>
       <h2 id="circuit-h">Where your coin's fees go</h2>
       <p>Read live from the Float program and the public wallet. Every trade, buyback and burn is a Solana transaction you can check.</p>
     </div>
     <div class="card circuit__card">
-      <ol class="flow">
+      <ol class="flow" data-seq>
         <li class="flow__node">
           <span class="flow__icons" id="fl-icons" aria-hidden="true"></span>
           <b>Your coin trades on Float</b>
@@ -79,13 +83,13 @@
   </section>
 
   <section class="section" id="faq" aria-labelledby="faq-h" style="padding-top:0">
-    <div class="head"><h2 id="faq-h">Questions</h2></div>
+    <div class="head" data-reveal><h2 id="faq-h">Questions</h2></div>
     <div class="faq">
-      <details><summary>Who receives my coin's fees?</summary><p>The creator share, 5% of Float's fee, goes to the launchpad's public wallet. Your coin's holders keep their own share, paid by Float in the pair asset.</p></details>
-      <details><summary>What is the FOMO leaderboard?</summary><p>FOMO is a Solana trading app that ranks its traders by PnL. The engine copies the #1 trader that has a public Solana wallet, with position-size and loss limits.</p></details>
-      <details><summary>Can the copy-trading wallet lose money?</summary><p>Yes. It always enters after the trader it copies, at a worse price. Limits cut losses, but no profit is guaranteed.</p></details>
-      <details><summary>Which coins get bought back?</summary><p>Every coin launched here, in proportion to the fees it generated. Bought-back coins are burned, and every burn shows up on the PnL page.</p></details>
-      <details><summary>Is this an official Float site?</summary><p>No. It's an independent interface that calls the Float program. The coins are real Float coins on Raydium LaunchLab.</p></details>
+      <details data-reveal><summary>Who receives my coin's fees?</summary><p>The creator share, 5% of Float's fee, goes to the launchpad's public wallet. Your coin's holders keep their own share, paid by Float in the pair asset.</p></details>
+      <details data-reveal><summary>What is the FOMO leaderboard?</summary><p>FOMO is a Solana trading app that ranks its traders by PnL. The engine copies the #1 trader that has a public Solana wallet, with position-size and loss limits.</p></details>
+      <details data-reveal><summary>Can the copy-trading wallet lose money?</summary><p>Yes. It always enters after the trader it copies, at a worse price. Limits cut losses, but no profit is guaranteed.</p></details>
+      <details data-reveal><summary>Which coins get bought back?</summary><p>Every coin launched here, in proportion to the fees it generated. Bought-back coins are burned, and every burn shows up on the PnL page.</p></details>
+      <details data-reveal><summary>Is this an official Float site?</summary><p>No. It's an independent interface that calls the Float program. The coins are real Float coins on Raydium LaunchLab.</p></details>
     </div>
   </section>
 </main>

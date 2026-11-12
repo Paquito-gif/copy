@@ -1,4 +1,4 @@
-import { $, api, el, avatar, usd, ago, short, config, targetChip } from './common.js';
+import { $, api, el, avatar, usd, ago, short, config, targetChip, countUsd, tilt } from './common.js';
 
 const SPLIT = [
   ['creator', 'Public wallet (creator)', '#5b9dff'],
@@ -38,7 +38,7 @@ async function target() {
     : `#${pickedRank} on FOMO's ${win} board${t.checkedAt ? ` · picked ${ago(t.changedAt ?? t.checkedAt)}` : ''}`;
 
   const pnl = row?.pnlUsd ?? t.pnlUsd;
-  $('tg-pnl').textContent = usd(pnl);
+  countUsd($('tg-pnl'), pnl);
   $('tg-pnl').className = pnl >= 0 ? 'up' : 'down';
   $('tg-window').textContent = `${win} PnL on FOMO`;
   $('tg-vol').textContent = row?.volumeUsd != null ? usd(row.volumeUsd, { sign: false }) : '–';
@@ -88,3 +88,5 @@ async function circuit() {
 
 target().catch(() => { $('tg-meta').textContent = 'Leaderboard unavailable right now'; });
 circuit().catch((e) => console.error('circuit', e));
+
+tilt(document.querySelectorAll('.target'), 6);

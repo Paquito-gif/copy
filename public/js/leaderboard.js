@@ -1,4 +1,4 @@
-import { $, api, el, avatar, usd, ago, short, reveal, engineState, targetChip } from './common.js';
+import { $, api, el, avatar, usd, ago, short, reveal, engineState, targetChip, countUsd, tilt } from './common.js';
 
 const LABEL = { '24h': '24h', '7d': '7-day', '30d': '30-day' };
 const vol = (n) => (n == null ? '–' : usd(n, { sign: false }));
@@ -23,7 +23,7 @@ function render(lb) {
       t.solana[0] ? el('a', { class: 'linkbtn', href: `https://solscan.io/account/${t.solana[0]}`, target: '_blank', rel: 'noopener' }, 'Solscan ↗')
         : el('span', { title: 'FOMO does not list a Solana wallet for this trader, so it cannot be copied.' }, 'Wallet not public')))));
 
-  $('rows').replaceChildren(...lb.traders.slice(3).map((t) => el('tr', { class: t.copied ? 'is-copied' : null },
+  $('rows').replaceChildren(...lb.traders.slice(3).map((t) => el('tr', { class: t.copied ? 'is-copied' : null, 'data-reveal': true },
     el('td', {}, el('span', { class: 'rank' }, `#${t.rank}`)),
     el('td', {}, el('div', { class: 'who' }, avatar(t.avatarUrl, t.handle, 'avatar--sm'),
       el('div', {}, el('b', {}, `@${t.handle}`), t.solana[0]
@@ -38,6 +38,8 @@ function render(lb) {
 
   $('source').textContent = lb.syncedAt ? `Synced ${ago(Date.parse(lb.syncedAt))}` : '';
   $('copied-window').textContent = LABEL[lb.copiedWindow] ?? lb.copiedWindow;
+  document.querySelectorAll('.pod__pnl').forEach((n, i) => countUsd(n, lb.traders[i].pnlUsd));
+  tilt(document.querySelectorAll('.pod'), 5);
   reveal();
 }
 
