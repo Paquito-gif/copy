@@ -3,7 +3,7 @@ import { $, api, el, avatar, usd, ago, short, reveal } from './common.js';
 const LABEL = { '24h': '24 h', '7d': '7 jours', '30d': '30 jours' };
 const money = (n) => (n == null ? '–' : `${Math.round(n).toLocaleString('fr-FR')} $`);
 
-function copiedChip() { return el('span', { class: 'chip chip--pump copied' }, el('span', { class: 'live', 'aria-hidden': 'true', style: 'background:#04140b' }), 'Copié'); }
+function copiedChip() { return el('span', { class: 'chip chip--pump copied' }, el('span', { class: 'live', 'aria-hidden': 'true', style: 'background:#031208' }), 'Copié'); }
 
 function holdings(list) {
   if (!list?.length) return el('span', { class: 'muted' }, '–');

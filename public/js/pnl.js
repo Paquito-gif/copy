@@ -16,7 +16,7 @@ function chart(series) {
   const y = (v) => H - P - ((v - min) / (max - min || 1)) * (H - 2 * P);
   const d = pts.map((p, i) => `${i ? 'L' : 'M'}${xs[i].toFixed(1)},${y(p.pnl).toFixed(1)}`).join(' ');
   const last = vals[vals.length - 1];
-  const color = last >= 0 ? '#3cf29b' : '#ff5470';
+  const color = last >= 0 ? '#2fe27e' : '#ff622e';
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
   svg.setAttribute('role', 'img');

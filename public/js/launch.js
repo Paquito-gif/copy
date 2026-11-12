@@ -160,7 +160,7 @@ $('dn-again').addEventListener('click', () => {
 
 function confetti() {
   if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-  const colors = ['#ffd23f', '#3cf29b', '#ff7a1a', '#6cc8ff', '#ff5470'];
+  const colors = ['#516af6', '#3d8bff', '#6f85ff', '#2fe27e', '#ffe02a'];
   const box = el('div', { class: 'confetti', 'aria-hidden': 'true' });
   for (let i = 0; i < 90; i++) {
     box.append(el('i', { style: `left:${Math.random() * 100}%;background:${colors[i % colors.length]};--x:${(Math.random() - .5) * 240}px;--r:${Math.random() * 900 - 450}deg;--t:${1.6 + Math.random() * 1.6}s;animation-delay:${Math.random() * .4}s` }));

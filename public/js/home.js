@@ -1,11 +1,11 @@
 import { $, api, el, avatar, usd, ago, countTo, short } from './common.js';
 
 const SPLIT = [
-  ['creator', 'Wallet public (créateur)', '#ffd23f'],
-  ['holders', 'Holders du coin', '#3cf29b'],
-  ['flagship', 'Rachat de $FLOAT', '#ff7a1a'],
-  ['traders', 'Traders actifs', '#6cc8ff'],
-  ['treasury', 'Trésorerie Float', '#8a7d68'],
+  ['creator', 'Wallet public (créateur)', '#516af6'],
+  ['holders', 'Holders du coin', '#2fe27e'],
+  ['flagship', 'Rachat de $FLOAT', '#ffe02a'],
+  ['traders', 'Traders actifs', '#3d8bff'],
+  ['treasury', 'Trésorerie Float', '#4a5680'],
 ];
 
 async function copycard() {
