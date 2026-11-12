@@ -236,13 +236,20 @@ export class CopyEngine extends DurableObject<Env> {
   private async copyBuy(s: Swap) {
     const st = await this.state();
     if (st.dailyPaused || st.positions[s.mint]) return;
-    if (Object.keys(st.positions).length >= this.s.maxOpenPositions) return;
+    // optional hard cap; 0 = none: the wallet balance decides how many positions fit
+    if (this.s.maxOpenPositions > 0 && Object.keys(st.positions).length >= this.s.maxOpenPositions) return;
     const capital = await this.tradingCapitalSol();
     await this.rollDay(capital);
     // size: a share of the capital, never more than MAX_TRADE_USD
     const price = await solPriceUsd();
     if (!price) { await this.record('skip', { mint: s.mint, reason: 'SOL price unavailable, $ cap cannot be enforced' }); return; }
-    const sizeSol = Math.min((capital * this.s.maxPositionPct) / 100, this.s.maxTradeUsd / price);
+    // size from the whole wallet (free SOL + what's already in open positions), so every position is the same size
+    const invested = Object.values(st.positions).reduce((a, p) => a + p.costSol, 0);
+    const sizeSol = Math.min(((capital + invested) * this.s.maxPositionPct) / 100, this.s.maxTradeUsd / price);
+    if (capital < sizeSol) {
+      await this.record('skip', { mint: s.mint, reason: `balance too low for a full position: ${capital.toFixed(3)} SOL free, ${sizeSol.toFixed(3)} SOL needed (${Object.keys(st.positions).length} open)` });
+      return;
+    }
     if (sizeSol < this.s.minTradeSol) { await this.record('skip', { mint: s.mint, reason: `capital ${capital.toFixed(3)} SOL trop faible` }); return; }
 
     const m = await this.rpc.mintInfo(s.mint).catch(() => null);

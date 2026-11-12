@@ -41,7 +41,8 @@ BASKET_SIZE = "3"
 MAX_POSITION_PCT = "25"
 # hard cap per copied trade, in US dollars (converted at the live SOL price)
 MAX_TRADE_USD = "100"
-MAX_OPEN_POSITIONS = "6"
+# 0 = no fixed limit: a new position opens only if the free balance covers a full-size one
+MAX_OPEN_POSITIONS = "0"
 MIN_TRADE_SOL = "0.05"
 # 0 = off: positions are only closed when the copied trader sells (same proportion)
 STOP_LOSS_PCT = "0"

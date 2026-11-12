@@ -60,7 +60,7 @@ export function settings(env: Env) {
     fomoApiKey: env.FOMO_API_KEY || '',
     maxPositionPct: n(env.MAX_POSITION_PCT, 25),
     maxTradeUsd: n(env.MAX_TRADE_USD, 100),
-    maxOpenPositions: n(env.MAX_OPEN_POSITIONS, 6),
+    maxOpenPositions: n(env.MAX_OPEN_POSITIONS, 0), // 0 = limited by the balance only
     minTradeSol: n(env.MIN_TRADE_SOL, 0.05),
     stopLossPct: n(env.STOP_LOSS_PCT, 0),   // 0 = off: exits follow the trader
     takeProfitPct: n(env.TAKE_PROFIT_PCT, 0),
