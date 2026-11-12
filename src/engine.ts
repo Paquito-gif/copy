@@ -14,6 +14,7 @@ import bs58 from 'bs58';
 import { type Env, type Settings, settings, SOL_MINT, rpcUrl } from './lib/env.js';
 import { Rpc, LAMPORTS_PER_SOL, b64 } from './lib/rpc.js';
 import { getQuote, impactPct, swap } from './lib/jupiter.js';
+import { tokenOrigin, type Origin } from './lib/origin.js';
 import { detectSwap, type Swap } from './lib/detect.js';
 import { fetchLeaderboard, type Leader } from './lib/leaderboard.js';
 import { checkFloatConfig, readLaunchState } from './float.js';
@@ -195,13 +196,29 @@ export class CopyEngine extends DurableObject<Env> {
         const s = detectSwap(tx, wallet, (m) => own.has(m));
         if (!s) continue;
         await this.record('seen', { trader: wallet, side: s.side, mint: s.mint, sig: sig.signature });
-        if (s.side === 'buy') { if (active.includes(wallet)) await this.copyBuy(s); }
+        if (s.side === 'buy') {
+          if (!active.includes(wallet)) continue;
+          // only memecoins launched on pump.fun or Raydium LaunchLab; everything else is ignored
+          const origin = await this.origin(s.mint);
+          if (origin === 'other') { await this.record('skip', { mint: s.mint, reason: 'not a pump.fun or Raydium LaunchLab memecoin' }); continue; }
+          await this.copyBuy(s);
+        }
         else {
           const p = st.positions[s.mint];
           if (p && p.trader === wallet) await this.sellPosition(p, s.soldFraction, 'trader vend');
         }
       }
     }
+  }
+
+  /** Token origin, cached in storage (it never changes). */
+  private async origin(mint: string): Promise<Origin> {
+    const key = `origin:${mint}`;
+    const hit = await this.ctx.storage.get<Origin>(key);
+    if (hit) return hit;
+    const o = await tokenOrigin(this.rpc, mint).catch(() => null);
+    if (o) await this.ctx.storage.put(key, o);
+    return o ?? 'other';
   }
 
   private async tradingCapitalSol() {
