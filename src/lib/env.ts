@@ -3,6 +3,8 @@ export interface Env {
   DB: D1Database;
   FILES: KVNamespace;
   ENGINE: DurableObjectNamespace;
+  RL_WRITE?: { limit(o: { key: string }): Promise<{ success: boolean }> }; // POST: uploads, builds, confirms
+  RL_READ?: { limit(o: { key: string }): Promise<{ success: boolean }> };  // GET /api/*
 
   // secrets
   RPC_URL: string;

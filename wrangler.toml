@@ -58,3 +58,14 @@ DRY_RUN = "true"
 #   wrangler secret put BOT_PRIVATE_KEY  (clé base58 du wallet FEE_RECEIVER)
 #   wrangler secret put ADMIN_TOKEN      (mot de passe pour démarrer / mettre en pause le moteur)
 #   wrangler secret put FOMO_API_KEY     (optionnel)
+
+# Per-IP rate limits (Workers Rate Limiting API)
+[[ratelimits]]
+name = "RL_WRITE"
+namespace_id = "1001"
+simple = { limit = 12, period = 60 }
+
+[[ratelimits]]
+name = "RL_READ"
+namespace_id = "1002"
+simple = { limit = 120, period = 60 }

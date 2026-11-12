@@ -21,6 +21,44 @@ const json = (body: unknown, status = 200, extra: Record<string, string> = {}) =
   new Response(JSON.stringify(body, (_k, v) => (typeof v === 'bigint' ? v.toString() : v)), {
     status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', ...extra },
   });
+/** Public, short-lived browser cache for read-only API answers (seconds). */
+const fresh = (body: unknown, maxAge: number) =>
+  json(body, 200, { 'Cache-Control': `public, max-age=${maxAge}, stale-while-revalidate=${maxAge * 4}` });
+
+/** Security headers for every HTML page. */
+const PAGE_HEADERS: Record<string, string> = {
+  'Content-Security-Policy': [
+    "default-src 'self'",
+    "script-src 'self' https://unpkg.com chrome-extension: moz-extension:",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "font-src https://fonts.gstatic.com",
+    "img-src 'self' data: blob: https:",
+    "connect-src 'self'",
+    "frame-ancestors 'none'", "base-uri 'self'", "form-action 'self'", "object-src 'none'", 'upgrade-insecure-requests',
+  ].join('; '),
+  'X-Frame-Options': 'DENY',
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+  'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=(), usb=()',
+  'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
+  'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
+};
+
+/** Constant-time string comparison (admin token). */
+function sameSecret(a: string, b: string) {
+  const x = new TextEncoder().encode(a), y = new TextEncoder().encode(b);
+  if (x.length !== y.length) return false;
+  return (crypto.subtle as any).timingSafeEqual(x, y) as boolean;
+}
+
+/** The first bytes of the file must match the declared image type. */
+function magicOk(type: string, b: Uint8Array) {
+  const at = (i: number, ...v: number[]) => v.every((x, k) => b[i + k] === x);
+  if (type === 'image/png') return at(0, 0x89, 0x50, 0x4e, 0x47);
+  if (type === 'image/jpeg') return at(0, 0xff, 0xd8, 0xff);
+  if (type === 'image/gif') return at(0, 0x47, 0x49, 0x46, 0x38);
+  if (type === 'image/webp') return at(0, 0x52, 0x49, 0x46, 0x46) && at(8, 0x57, 0x45, 0x42, 0x50);
+  return false;
+}
 
 const clean = (v: unknown, max: number) => String(v ?? '').replace(/[\u0000-\u001f]/g, '').trim().slice(0, max);
 const safeUrl = (v: unknown) => { const s = clean(v, 200); return /^https:\/\/[^\s]+$/.test(s) ? s : ''; };
@@ -44,7 +82,7 @@ async function cached<T>(key: string, ttl: number, fn: () => Promise<T>): Promis
   const hit = await cache.match(req);
   if (hit) return hit.json() as Promise<T>;
   const data = await fn();
-  await cache.put(req, new Response(JSON.stringify(data), { headers: { 'Cache-Control': `max-age=${ttl}` } }));
+  await cache.put(req, new Response(JSON.stringify(data, (_k, v) => (typeof v === 'bigint' ? v.toString() : v)), { headers: { 'Cache-Control': `max-age=${ttl}` } }));
   return data;
 }
 
@@ -77,7 +115,11 @@ async function apiQuotes(env: Env) {
     console.error('Pair list incomplete:', (e as Error).message);
   }
   let result = list;
-  if (complete) await env.FILES.put('cache/quotes.json', JSON.stringify(list));
+  if (complete) {
+    // KV writes are scarce (1,000/day on the free plan): only write when the list really changed
+    const next = JSON.stringify(list);
+    if ((await env.FILES.get('cache/quotes.json')) !== next) await env.FILES.put('cache/quotes.json', next);
+  }
   else {
     // RPC saturé : on ressert la dernière liste complète connue
     const last = await env.FILES.get<typeof list>('cache/quotes.json', 'json');
@@ -107,7 +149,22 @@ async function apiConfig(env: Env) {
   };
 }
 
-async function apiMetadata(env: Env, origin: string, body: any) {
+/** Exact upload caps in D1, so nobody can burn the free KV write quota: 20/hour per IP, 300/day overall. */
+async function uploadAllowed(env: Env, ip: string) {
+  await env.DB.prepare('CREATE TABLE IF NOT EXISTS uploads (ip TEXT NOT NULL, t INTEGER NOT NULL)').run();
+  const now = Date.now();
+  const row = await env.DB.prepare(
+    'SELECT SUM(CASE WHEN ip = ?1 AND t > ?2 THEN 1 ELSE 0 END) AS mine, COUNT(*) AS day FROM uploads WHERE t > ?3',
+  ).bind(ip, now - 3_600_000, now - 86_400_000).first<{ mine: number | null; day: number }>();
+  if ((row?.mine ?? 0) >= 20) throw new HttpError(429, 'Upload limit reached for now. Try again in an hour.');
+  if ((row?.day ?? 0) >= 300) throw new HttpError(429, 'The launchpad has hit its daily upload limit. Try again tomorrow.');
+  await env.DB.batch([
+    env.DB.prepare('INSERT INTO uploads (ip, t) VALUES (?, ?)').bind(ip, now),
+    env.DB.prepare('DELETE FROM uploads WHERE t < ?').bind(now - 86_400_000),
+  ]);
+}
+
+async function apiMetadata(env: Env, origin: string, body: any, ip = 'unknown') {
   const name = clean(body.name, 32);
   const ticker = clean(body.ticker, 10);
   validateLaunch({ name, ticker, uri: 'x', tier: 0 });
@@ -115,7 +172,9 @@ async function apiMetadata(env: Env, origin: string, body: any) {
   if (!m || !IMG_TYPES[m[1]]) throw new HttpError(400, 'A PNG, JPG, WEBP or GIF image is required');
   const img = Uint8Array.from(atob(m[2]), (c) => c.charCodeAt(0));
   if (img.length > 1_000_000) throw new HttpError(400, 'Image too large (1 MB max)');
+  if (!magicOk(m[1], img)) throw new HttpError(400, "This file isn't a valid PNG, JPG, WEBP or GIF image");
 
+  await uploadAllowed(env, ip);
   const id = randomId();
   const imgFile = `${id}.${IMG_TYPES[m[1]]}`;
   await env.FILES.put(`img/${imgFile}`, img, { metadata: { contentType: m[1] } });
@@ -189,10 +248,14 @@ async function apiConfirm(env: Env, origin: string, body: any) {
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).bind(mint.toBase58(), meta.name ?? '', meta.symbol ?? '', meta.image ?? '', meta.description ?? '', ls.quoteMint,
     quotes.find((q) => q.mint === ls!.quoteMint)?.symbol ?? '', ls.feeTier, ls.creator, signature, Date.now()).run();
+  await caches.default.delete(new Request('https://cache.internal/coins-v1')).catch(() => false);
   return { ok: true, mint: mint.toBase58() };
 }
 
 async function apiCoins(env: Env) {
+  return cached('coins-v1', 30, () => readCoins(env));
+}
+async function readCoins(env: Env) {
   const r = await env.DB.prepare('SELECT * FROM coins ORDER BY launched_at DESC LIMIT 200').all<any>();
   return r.results.map((c) => ({
     mint: c.mint, name: c.name, ticker: c.ticker, image: c.image, description: c.description,
@@ -284,11 +347,13 @@ async function buildTrades(env: Env) {
     const rpc = new Rpc(env.RPC_URL);
     const sigs = (await rpc.getSignatures(address, { limit: 8 })).filter((x) => !x.err);
     const items: any[] = [];
-    for (const sg of sigs) { // sequential: the free RPC rate-limits bursts
-      if (items.length >= 6) break;
-      const tx = await rpc.getParsedTransaction(sg.signature).catch(() => null);
-      const sum = tx && summarize(tx, address);
-      if (sum) items.push({ sig: sg.signature, t: (sg.blockTime ?? 0) * 1000, ...sum });
+    for (let i = 0; i < sigs.length && items.length < 6; i += 3) { // 3 at a time: fast, yet gentle on the free RPC
+      const batch = sigs.slice(i, i + 3);
+      const txs = await Promise.all(batch.map((sg) => rpc.getParsedTransaction(sg.signature).catch(() => null)));
+      batch.forEach((sg, k) => {
+        const sum = txs[k] && summarize(txs[k], address);
+        if (sum && items.length < 6) items.push({ sig: sg.signature, t: (sg.blockTime ?? 0) * 1000, ...sum });
+      });
     }
     const mints = [...new Set(items.flatMap((x) => x.legs.map(([m]: [string]) => m)))];
     const meta = new Map(await Promise.all(mints.map(async (m) => [m, await tokenMeta(m)] as const)));
@@ -299,20 +364,20 @@ async function buildTrades(env: Env) {
   }
 }
 
-/** Stale-while-revalidate in KV: answer at once, refresh in the background (one refresh at a time). */
+/** Stale-while-revalidate on the Cache API (free, unlimited; no KV writes): answer at once, refresh in the background. */
+let tradesRefresh: Promise<void> | null = null; // one refresh at a time per isolate
 async function apiTrades(env: Env, ctx: ExecutionContext) {
-  const KEY = 'feed:trades:v1', LOCK = 'feed:trades:lock';
-  const cur = await env.FILES.get<any>(KEY, 'json');
+  const req = new Request('https://cache.internal/feed-trades-v2');
+  const hit = await caches.default.match(req);
+  const cur = hit ? await hit.json<any>() : null;
   if (cur && Date.now() - cur.at < 75_000) return cur;
-  const refresh = async () => {
-    if (await env.FILES.get(LOCK)) return;
-    await env.FILES.put(LOCK, '1', { expirationTtl: 60 });
-    try { await env.FILES.put(KEY, JSON.stringify({ ...(await buildTrades(env)), at: Date.now() })); }
-    finally { await env.FILES.delete(LOCK); }
-  };
-  if (cur) { ctx.waitUntil(refresh().catch(() => {})); return cur; }
-  await refresh().catch(() => {});
-  return (await env.FILES.get<any>(KEY, 'json')) ?? { address: null, handle: null, items: [] };
+  const refresh = () => (tradesRefresh ??= (async () => {
+    const data = { ...(await buildTrades(env)), at: Date.now() };
+    await caches.default.put(req, new Response(JSON.stringify(data), { headers: { 'Cache-Control': 'max-age=86400' } }));
+  })().catch((e) => console.error('trades', (e as Error).message)).finally(() => { tradesRefresh = null; }));
+  ctx.waitUntil(refresh());
+  // cold cache: answer right away, the page asks again in a few seconds
+  return cur ?? { address: null, handle: null, items: [], pending: true };
 }
 
 async function apiSlot(env: Env) {
@@ -400,7 +465,7 @@ async function apiPnl(env: Env) {
 }
 
 async function apiAdmin(env: Env, req: Request, body: any) {
-  if (!env.ADMIN_TOKEN || req.headers.get('Authorization') !== `Bearer ${env.ADMIN_TOKEN}`) throw new HttpError(401, 'Unauthorized');
+  if (!env.ADMIN_TOKEN || !sameSecret(req.headers.get('Authorization') ?? '', `Bearer ${env.ADMIN_TOKEN}`)) throw new HttpError(401, 'Unauthorized');
   const action = String(body.action ?? '');
   if (!['start', 'pause', 'scan', 'fees'].includes(action)) throw new HttpError(400, 'action: start | pause | scan | fees');
   return engineCall(env, `/${action}`);
@@ -413,29 +478,34 @@ export default {
     const p = url.pathname;
     const origin = (env.PUBLIC_URL || url.origin).replace(/\/$/, '');
     try {
+      const ip = req.headers.get('CF-Connecting-IP') ?? 'unknown';
       if (req.method === 'POST' && p.startsWith('/api/')) {
         const o = req.headers.get('Origin');
         if (o && o !== origin && o !== url.origin && !p.startsWith('/api/admin/')) throw new HttpError(403, 'Origin not allowed');
+        if (env.RL_WRITE && !(await env.RL_WRITE.limit({ key: ip })).success) throw new HttpError(429, 'Too many requests. Wait a minute and try again.');
         const len = Number(req.headers.get('Content-Length') ?? 0);
         if (len > 2_000_000) throw new HttpError(413, 'Request too large');
+        const raw = await req.arrayBuffer();
+        if (raw.byteLength > 2_000_000) throw new HttpError(413, 'Request too large');
         let body: any;
-        try { body = await req.json(); } catch { throw new HttpError(400, 'Invalid JSON'); }
-        if (p === '/api/metadata') return json(await apiMetadata(env, origin, body));
+        try { body = JSON.parse(new TextDecoder().decode(raw)); } catch { throw new HttpError(400, 'Invalid JSON'); }
+        if (p === '/api/metadata') return json(await apiMetadata(env, origin, body, ip));
         if (p === '/api/launch/build') return json(await apiBuild(env, origin, body));
         if (p === '/api/launch/confirm') return json(await apiConfirm(env, origin, body));
         if (p === '/api/admin/engine') return json(await apiAdmin(env, req, body));
         throw new HttpError(404, 'Not found');
       }
       if (req.method === 'GET') {
-        if (p === '/api/config') return json(await apiConfig(env));
-        if (p === '/api/quotes') return json(await apiQuotes(env));
-        if (p === '/api/coins') return json(await apiCoins(env));
-        if (p === '/api/stats') return json(await apiStats(env));
-        if (p === '/api/trader') return json(await apiTrader(env));
-        if (p === '/api/trades') return json(await apiTrades(env, ctx));
-        if (p === '/api/slot') return json(await apiSlot(env));
-        if (p === '/api/leaderboard') return json(await apiLeaderboard(env, url.searchParams.get('window') || '24h'));
-        if (p === '/api/pnl') return json(await apiPnl(env));
+        if (p.startsWith('/api/') && env.RL_READ && !(await env.RL_READ.limit({ key: ip })).success) throw new HttpError(429, 'Too many requests. Wait a minute and try again.');
+        if (p === '/api/config') return fresh(await cached('config-v1', 60, () => apiConfig(env)), 60);
+        if (p === '/api/quotes') return fresh(await apiQuotes(env), 300);
+        if (p === '/api/coins') return fresh(await apiCoins(env), 30);
+        if (p === '/api/stats') return fresh(await cached('stats-v1', 15, () => apiStats(env)), 15);
+        if (p === '/api/trader') return fresh(await apiTrader(env), 60);
+        if (p === '/api/trades') { const d = await apiTrades(env, ctx); return d.pending ? json(d) : fresh(d, 30); }
+        if (p === '/api/slot') return fresh(await apiSlot(env), 4);
+        if (p === '/api/leaderboard') return fresh(await apiLeaderboard(env, url.searchParams.get('window') || '24h'), 120);
+        if (p === '/api/pnl') return fresh(await cached('pnl-v1', 20, () => apiPnl(env)), 20);
         if (p === '/api/ticker') {
           const t = clean(url.searchParams.get('t'), 10);
           if (!/^[A-Za-z0-9]{1,10}$/.test(t)) throw new HttpError(400, 'Ticker: 1 to 10 letters or digits');
@@ -460,6 +530,7 @@ export default {
       const etag = `"${f.etag}"`;
       const headers = {
         'Content-Type': f.type, ETag: etag, 'X-Content-Type-Options': 'nosniff',
+        ...(f.type.startsWith('text/html') ? PAGE_HEADERS : {}),
         // URLs versionnées (?v=…) : cache long ; sinon (HTML, ou appel sans version) le navigateur revalide toujours
         'Cache-Control': !f.type.startsWith('text/html') && url.searchParams.has('v') ? 'public, max-age=31536000, immutable' : 'no-cache',
       };
@@ -468,7 +539,11 @@ export default {
     } catch (e) {
       const status = e instanceof HttpError ? e.status : 500;
       if (status === 500) console.error(e);
-      return json({ error: status === 500 ? `Server error: ${(e as Error).message}` : (e as Error).message }, status);
+      const msg = String((e as Error)?.message ?? '');
+      // plain errors carry user-facing reasons (validation, Float state); hide anything that could expose internals
+      const leaky = /https?:|api[-_]?key|token|secret|rpc|\bat\s|stack/i.test(msg) || msg.length > 240;
+      const code = status === 500 && !leaky && msg ? 400 : status;
+      return json({ error: status === 500 && (leaky || !msg) ? 'Something went wrong on our side. Try again in a moment.' : msg }, code);
     }
   },
 

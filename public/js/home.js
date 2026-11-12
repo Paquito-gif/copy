@@ -1,4 +1,4 @@
-import { $, api, el, avatar, usd, ago, short, config, targetChip, countUsd, tilt, flash, every, countTo } from './common.js';
+import { $, api, el, avatar, usd, ago, short, config, targetChip, countUsd, tilt, flash, every, countTo, watchSeen } from './common.js';
 
 const SPLIT = [
   ['creator', 'Public wallet (creator)', '#5b9dff'],
@@ -134,8 +134,12 @@ function feedItem(x, fresh) {
     el('a', { class: 'feed__tx', href: `https://solscan.io/tx/${x.sig}`, target: '_blank', rel: 'noopener', 'aria-label': 'Transaction on Solscan' }, 'tx ↗'));
 }
 
+let feedTries = 0;
 async function feed() {
   const d = await api('/api/trades');
+  // the server is still reading the chain: try again shortly
+  if (d.pending) { if (++feedTries <= 6) setTimeout(() => feed().catch(() => {}), 5000); return; }
+  feedTries = 0;
   if (d.handle) $('feed-who').textContent = `@${d.handle}'s wallet`;
   const list = $('feed');
   if (!d.items?.length) {
@@ -152,22 +156,24 @@ async function feed() {
   list.classList.toggle('is-first', first);
   seen = new Set(d.items.map((x) => x.sig));
 }
-every(30_000, () => document.querySelectorAll('.feed__time').forEach((n) => { n.textContent = ago(Number(n.dataset.t)); }));
+const feedBox = document.querySelector('.feed');
+every(30_000, () => document.querySelectorAll('.feed__time').forEach((n) => { n.textContent = ago(Number(n.dataset.t)); }), feedBox);
 
 // ---------- Solana slot: real value every few seconds, ~400 ms per slot in between ----------
 let base = null;
 async function syncSlot() { try { base = await api('/api/slot'); } catch { /* keep counting */ } }
+const feedSeen = watchSeen(feedBox);
 syncSlot().then(() => {
   const n = $('slot');
-  setInterval(() => { if (base) n.textContent = (base.slot + Math.max(0, Math.floor((Date.now() - base.at) / 400))).toLocaleString('en-US'); }, 400);
+  setInterval(() => { if (base && feedSeen() && document.visibilityState === 'visible') n.textContent = (base.slot + Math.max(0, Math.floor((Date.now() - base.at) / 400))).toLocaleString('en-US'); }, 400);
 });
-every(8_000, syncSlot);
+every(30_000, syncSlot, feedBox);
 
-every(75_000, () => feed().catch(() => {}));
+every(75_000, () => feed().catch(() => {}), feedBox);
 
 const first = [target().catch(() => { $('tg-meta').textContent = 'Leaderboard unavailable right now'; }), circuit().catch((e) => console.error('circuit', e))];
 // the wallet feed is the heaviest call: start it once the rest has answered
 Promise.allSettled(first).then(() => feed().catch(() => { $('feed').replaceChildren(el('li', { class: 'feed__empty' }, 'The wallet feed is unavailable right now.')); }));
 
 tilt(document.querySelectorAll('.target'), 6);
-every(60_000, refresh);
+every(60_000, refresh, document.querySelector('.target'));

@@ -124,8 +124,39 @@ export function flash(node, up) {
 }
 
 /** Runs fn every ms while the tab is visible. */
-export function every(ms, fn) {
-  setInterval(() => { if (document.visibilityState === 'visible') fn(); }, ms);
+export function every(ms, fn, onlyWhenSeen = null) {
+  const seen = onlyWhenSeen ? watchSeen(onlyWhenSeen) : () => true;
+  setInterval(() => { if (document.visibilityState === 'visible' && seen()) fn(); }, ms);
+}
+
+/** Returns a function telling whether the element is (roughly) on screen right now. */
+export function watchSeen(node) {
+  if (!node || !('IntersectionObserver' in window)) return () => true;
+  let on = true;
+  new IntersectionObserver(([e]) => { on = e.isIntersecting; }, { rootMargin: '200px 0px' }).observe(node);
+  return () => on;
+}
+
+/** Infinite animations pause while their block is off screen. */
+function pauseOffscreen() {
+  if (!motionOK || !('IntersectionObserver' in window)) return;
+  const io = new IntersectionObserver((es) => es.forEach((e) => e.target.classList.toggle('is-off', !e.isIntersecting)), { rootMargin: '100px 0px' });
+  document.querySelectorAll('.stage, .flow, .feed, .podium, .big, .review-card').forEach((n) => io.observe(n));
+}
+
+/** web3.js is only needed to sign: load it on demand, pinned with Subresource Integrity. */
+let web3P;
+export function loadWeb3() {
+  return (web3P ??= new Promise((resolve, reject) => {
+    if (window.solanaWeb3) { resolve(window.solanaWeb3); return; }
+    const s = document.createElement('script');
+    s.src = 'https://unpkg.com/@solana/web3.js@1.98.0/lib/index.iife.min.js';
+    s.integrity = 'sha384-1/Ll6ABlJDlMx1URcif2stL9Fxod/1rg71YHzGqTl6Bwzi0Vq993Jt/oVLFXfUgQ';
+    s.crossOrigin = 'anonymous';
+    s.onload = () => resolve(window.solanaWeb3);
+    s.onerror = () => { web3P = null; reject(new Error('Could not load the Solana library. Check your connection and try again.')); };
+    document.head.append(s);
+  }));
 }
 
 // ---------- 3D details ----------
@@ -181,17 +212,19 @@ export function tilt(nodes, max = 7) {
   });
 }
 
-/** Scroll-linked values: --sy on the root (px scrolled), sticky header state. */
+/** Scroll-linked values, written only on the elements that use them (not the root: no full-page style recalc). */
 function scrollFx() {
   const root = document.documentElement, top = document.querySelector('.top');
-  let ticking = false;
+  const stages = [...document.querySelectorAll('.stage')];
+  let ticking = false, lastSy = -1, scrolled = null;
   const update = () => {
     ticking = false;
     const y = scrollY;
-    if (motionOK) root.style.setProperty('--sy', String(Math.min(y, 1600)));
+    const sy = Math.min(y, 900);
+    if (motionOK && stages.length && sy !== lastSy) { lastSy = sy; stages.forEach((s) => s.style.setProperty('--sy', String(sy))); }
     const max = root.scrollHeight - innerHeight;
-    root.style.setProperty('--progress', max > 0 ? (y / max).toFixed(4) : '0');
-    top?.classList.toggle('is-scrolled', y > 8);
+    top?.style.setProperty('--progress', max > 0 ? (y / max).toFixed(3) : '0');
+    if ((y > 8) !== scrolled) { scrolled = y > 8; top?.classList.toggle('is-scrolled', scrolled); }
   };
   addEventListener('scroll', () => { if (!ticking) { ticking = true; requestAnimationFrame(update); } }, { passive: true });
   update();
@@ -262,11 +295,14 @@ function initNavPill() {
 
 /** Card borders light up where the pointer is; the background grid follows it too. */
 function initSpotlight() {
-  if (motionOK) {
-    let r2 = 0;
+  const bg = el('div', { class: 'bgfx', 'aria-hidden': 'true' });
+  document.body.prepend(bg);
+  if (motionOK && matchMedia('(hover: hover) and (pointer: fine)').matches) {
+    let r2 = 0, last = null;
     addEventListener('pointermove', (ev) => {
+      last = ev;
       if (r2) return;
-      r2 = requestAnimationFrame(() => { r2 = 0; document.documentElement.style.setProperty('--cx', `${ev.clientX}px`); document.documentElement.style.setProperty('--cy', `${ev.clientY}px`); });
+      r2 = requestAnimationFrame(() => { r2 = 0; bg.style.setProperty('--cx', `${last.clientX}px`); bg.style.setProperty('--cy', `${last.clientY}px`); });
     }, { passive: true });
   }
   if (!motionOK || !matchMedia('(hover: hover) and (pointer: fine)').matches) return;
@@ -307,6 +343,7 @@ markActive();
 initMenu();
 initNavPill();
 initSpotlight();
+pauseOffscreen();
 initEngineStatus();
 initWallet();
 reveal();

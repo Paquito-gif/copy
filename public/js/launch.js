@@ -1,5 +1,4 @@
-/* global solanaWeb3 */
-import { $, api, el, fmt, walletState, connectWallet, config, coinFace } from './common.js';
+import { $, api, el, fmt, walletState, connectWallet, config, coinFace, loadWeb3 } from './common.js';
 
 let imageData = null, cfg = null, quotes = [], pending = null, tickerTaken = false, tickerTimer = null, filter = 'all';
 const isCrypto = (q) => q.symbol === 'SOL' || q.symbol === 'USDC';
@@ -160,6 +159,7 @@ $('form').addEventListener('submit', async (e) => {
     $('pv-sim').textContent = `Passed · ${built.accounts} accounts`;
     status('');
     stage('sign');
+    loadWeb3().catch(() => {});
   } catch (err) {
     const m = err.message || String(err);
     if (/ticker/i.test(m)) { setErr('ticker', m); $('ticker').focus(); }
@@ -174,6 +174,7 @@ $('sign').addEventListener('click', async () => {
   const btn = $('sign'); btn.disabled = true; btn.setAttribute('aria-busy', 'true'); $('edit').disabled = true;
   try {
     status('Approve the transaction in your wallet.');
+    const solanaWeb3 = await loadWeb3();
     const tx = solanaWeb3.VersionedTransaction.deserialize(Uint8Array.from(atob(pending.built.transaction), (c) => c.charCodeAt(0)));
     const { signature } = await walletState.provider.signAndSendTransaction(tx);
     status('Sent. Confirming on Solana…');
