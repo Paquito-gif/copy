@@ -5,10 +5,11 @@
  *  3. un lancement construit par nous passe la simulation du programme Float.
  * Usage : RPC_URL=... npx tsx scripts/verify-float.ts
  */
-import { Connection, PublicKey, TransactionMessage, VersionedTransaction, ComputeBudgetProgram, Keypair } from '@solana/web3.js';
+import { PublicKey, TransactionMessage, VersionedTransaction, ComputeBudgetProgram, Keypair } from '@solana/web3.js';
+import { Rpc, b64 } from '../src/lib/rpc.js';
 import { buildLaunchIx, checkFloatConfig, readLaunchState, isQuoteEnabled, isTickerTaken, TOKEN_PROGRAMS } from '../src/float.js';
 
-const conn = new Connection(process.env.RPC_URL || 'https://solana-rpc.publicnode.com', 'confirmed');
+const conn = new Rpc(process.env.RPC_URL || 'https://solana-rpc.publicnode.com');
 const WSOL = new PublicKey('So11111111111111111111111111111111111111112');
 
 // 1) Lancement réel observé : tx 5qDZVM61…, ticker ALOOOOONG
@@ -47,7 +48,7 @@ const msg = new TransactionMessage({
   payerKey: creator, recentBlockhash: blockhash,
   instructions: [ComputeBudgetProgram.setComputeUnitLimit({ units: 400_000 }), sim.ix],
 }).compileToV0Message();
-const res = await conn.simulateTransaction(new VersionedTransaction(msg), { sigVerify: false, replaceRecentBlockhash: true });
-const logs = res.value.logs ?? [];
-console.log(res.value.err ? `❌ simulation: ${JSON.stringify(res.value.err)}` : `✅ simulation OK (${res.value.unitsConsumed} CU), mint ${sim.mint.toBase58()}`);
+const res = await conn.simulate(b64(new VersionedTransaction(msg).serialize()), { replaceRecentBlockhash: true });
+const logs = res.logs ?? [];
+console.log(res.err ? `❌ simulation: ${JSON.stringify(res.err)}` : `✅ simulation OK (${res.unitsConsumed} CU), mint ${sim.mint.toBase58()}`);
 console.log(logs.filter((l) => /Instruction:|Error|failed|success/i.test(l)).slice(0, 15).join('\n'));

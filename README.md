@@ -1,83 +1,86 @@
-# Copy Launch : launchpad sur Float
+# Copy Launch : launchpad sur Float, 100 % Cloudflare
 
-Un launchpad qui lance de **vrais coins Float** (Raydium LaunchLab, paires SOL / USDC / actions tokenisées).
-Chaque coin est lancé avec `fee_receiver` = **le wallet public du launchpad**.
-La part créateur des fees de tous les coins arrive donc dans ce wallet. Le wallet **copie le n°1 du classement FOMO**, et les profits **rachètent et brûlent les coins** au prorata des fees que chacun a générés.
+Un launchpad qui lance de **vrais coins Float** (Raydium LaunchLab ; paires SOL, USDC et actions tokenisées).
+Chaque coin est lancé avec `fee_receiver` = **le wallet public du launchpad**. La part créateur des fees (5 % du fee Float) arrive donc dans ce wallet. Le wallet **copie le n°1 du classement FOMO**, et les profits **rachètent et brûlent les coins** au prorata des fees que chacun a générés.
 
 ```
 utilisateur ──signe──► launch (programme Float) ── fee_receiver ──► WALLET PUBLIC
-                                                                      │ part créateur (5 % des fees Float, dans la paire)
+                                                                      │ part créateur, dans la paire du coin
+                                                     cron horaire ──► conversion en SOL (Jupiter)
                                                                       ▼
-                                                        conversion en SOL (Jupiter)
-                                                                      ▼
-                                                    copy-trading du top FOMO (garde-fous)
+                     cron toutes les 5 h : n°1 FOMO ──► copy-trading (Durable Object, alarme toutes les 10 s)
                                                                       ▼ profits réalisés × 80 %
-                                                buyback des coins au prorata de leurs fees ─► burn
+                                                     rachat des coins au prorata de leurs fees ─► burn
 ```
 
-## Ce qui a été vérifié sur mainnet (12/11/2026)
-- `npm run verify:float` reproduit **à l'identique les 23 comptes** d'un vrai lancement Float, avec le même format de données (180 octets).
-- **La simulation d'un lancement construit par ce code passe** sur le programme Float, avec un `fee_receiver` différent du créateur.
-- La config Float est lue on-chain : lancements actifs ; répartition holders 15 %, **créateur 5 %**, flagship 30 %, traders 30 %, trésorerie 20 %.
-- Paires activées : SOL, USDC et les xStocks (NVDAx, TSLAx, SPYx, AAPLx…). La liste est relue on-chain au démarrage.
-- La part créateur est versée au `fee_receiver` par `claim_dev_fees`, une instruction permissionless que le crank de Float exécute en continu.
-
-Float n'a **pas d'IDL publique**. Le format a été reconstitué à partir des transactions on-chain. Le programme est upgradable : s'il change, `checkFloatConfig()` bloque les lancements au lieu d'envoyer une transaction cassée. Relance `npm run verify:float` après toute mise à jour de Float.
-
-## Architecture
-| Partie | Fichier | Rôle |
+## Architecture Cloudflare
+| Brique | Service | Fichier |
 |---|---|---|
-| Client Float | `src/float.ts` | construit l'instruction `launch`, décode la config et les `LaunchState` |
-| Site + API | `src/server.ts`, `public/` | formulaire de lancement (Phantom, Solflare, Backpack), hébergement des métadonnées, registre des coins, dashboard public |
-| Moteur | `src/engine/` | attribution des fees par coin, conversion en SOL, copy-trading FOMO, buyback et burn |
+| Site | Workers Static Assets | `public/` |
+| API : lancement, paires, stats, trader | Worker | `src/worker.ts` |
+| Images et fiches des coins (`/img`, `/m`) | R2 `copy-launch-files` | `src/worker.ts` |
+| Registre des coins | D1 `copy-launch` | `migrations/` |
+| Moteur de copy-trading | Durable Object `CopyEngine` (alarmes) | `src/engine.ts` |
+| Scan du n°1 FOMO (5 h), conversion des fees (1 h) | Cron Triggers | `wrangler.toml` |
+| Client du programme Float | | `src/float.ts` |
 
-Le **serveur web ne détient aucune clé**. L'utilisateur signe le lancement dans son wallet, et chaque transaction est **simulée avant signature**. Seul le moteur (process séparé) a la clé du wallet public.
+Le Worker ne signe jamais rien : l'utilisateur signe son lancement dans son wallet, et chaque lancement est **simulé avant signature**. Seul le moteur utilise `BOT_PRIVATE_KEY`, stockée en secret Cloudflare.
 
-## Lancer
+## Déploiement
 ```bash
 npm install
-cp .env.example .env        # FEE_RECEIVER, BOT_PRIVATE_KEY, RPC_URL, PUBLIC_URL, TRADERS
-npm run verify:float        # vérifie la compatibilité avec le programme Float actuel
-npm run start:web           # le site
-npm run start:engine        # le moteur (DRY_RUN=true par défaut)
-npm test
+npx wrangler login
+npx wrangler d1 create copy-launch                 # copier l'id dans wrangler.toml (database_id)
+npx wrangler r2 bucket create copy-launch-files
+npm run db:migrate
+npx wrangler secret put RPC_URL                    # RPC payant conseillé (Helius, Triton…)
+npx wrangler secret put BOT_PRIVATE_KEY            # clé base58 du wallet FEE_RECEIVER
+npx wrangler secret put ADMIN_TOKEN                # mot de passe pour piloter le moteur
+npm run deploy
 ```
-`PUBLIC_URL` doit être l'URL HTTPS publique du site, car les métadonnées des coins y sont hébergées. Garde le dossier `data/` sauvegardé : il contient les images et métadonnées des coins.
+Ensuite :
+1. Dans `wrangler.toml`, `FEE_RECEIVER` doit être l'adresse du wallet dont tu as mis la clé.
+2. Ajoute ton domaine au Worker (Settings → Domains & Routes).
+3. Si tu sers le site sur un domaine précis, mets `PUBLIC_URL` dans `[vars]` : c'est l'adresse écrite dans les fiches des coins.
 
-## Combien ça rapporte
-La part créateur vaut 5 % du fee Float. Pour 100 000 $ de volume sur un coin :
-| Palier | Fee Float (hors 0,25 % Raydium) | Part créateur → wallet |
-|---|---|---|
-| 1 % | 0,75 % | ≈ 37,5 $ |
-| 2 % | 1,75 % | ≈ 87,5 $ |
-| 2,5 % | 2,25 % | ≈ 112,5 $ |
+## Piloter le moteur (en pause par défaut)
+```bash
+curl -X POST https://TON-DOMAINE/api/admin/engine -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: application/json" -d '{"action":"start"}'
+```
+Actions possibles : `start`, `pause`, `scan` (relire le n°1 FOMO maintenant), `fees` (cycle des fees maintenant).
+`DRY_RUN = "true"` (dans `wrangler.toml`) simule tous les trades. Passe-le à `"false"` seulement après une période de test.
 
-Ces montants viennent de la config on-chain, mais l'arrondi exact de Float n'a pas été vérifié. Il faut **beaucoup de volume cumulé** sur les coins du launchpad pour que le wallet ait un capital de trading utile.
+## Le n°1 FOMO
+fomo.family n'a pas d'API publique. Le classement est lu via une API tierce non officielle (`fomo-api.com` par défaut, board « fomo-parity » = les chiffres tels que FOMO les affiche) :
+- le moteur prend le n°1 qui a une adresse Solana connue ;
+- il le revérifie toutes les 5 h. Si le n°1 change, il ne copie plus que le nouveau, et suit l'ancien uniquement pour revendre ses positions encore ouvertes ;
+- si l'API est injoignable, il garde le dernier n°1 connu.
 
-## Le n°1 FOMO, trouvé automatiquement
-`src/engine/leaderboard.ts` lit le classement FOMO (fenêtre `LEADERBOARD_WINDOW`, 24h par défaut), prend le n°1 qui a une adresse Solana connue et l'enregistre dans `data/leader.json`. Le moteur le relit au démarrage puis **toutes les 5 h** (`LEADER_SCAN_HOURS`) :
-- même n°1 : rien ne change ;
-- nouveau n°1 : le moteur s'abonne à sa nouvelle adresse et n'achète plus que derrière lui. L'ancien n°1 reste suivi **uniquement pour revendre** les positions encore ouvertes copiées sur lui (le stop-loss et la prise de profit restent actifs).
+Réglages : `LEADERBOARD_WINDOW` (24h, 7d ou 30d), `MODE` (TOP1 ou BASKET), `BASKET_SIZE`, `FOMO_API_KEY`.
 
-`npm run leader` affiche le n°1 actuel. fomo.family n'a pas d'API publique : le classement vient d'une API tierce non officielle (`fomo-api.com` par défaut, board « fomo-parity » = les chiffres tels que FOMO les affiche). Sans clé, elle renvoie le top 10, ce qui suffit pour le n°1. Si le classement est injoignable, le moteur garde le dernier n°1 connu.
+## Garde-fous du copy-trading
+- taille max par trade : `MAX_POSITION_PCT` ;
+- nombre max de positions ouvertes ;
+- tokens refusés si leur mint authority ou leur freeze authority est active ;
+- impact prix max, plus un test de revente avant chaque achat ;
+- stop-loss et prise de profit ;
+- pause automatique si la perte du jour dépasse `MAX_DAILY_LOSS_PCT` ;
+- les coins du launchpad ne sont jamais copy-tradés.
 
-## Limites et risques
-- **Le classement vient d'une API tierce non officielle** : si elle tombe ou change de format, le moteur garde le dernier n°1 connu et le signale dans les logs. `TRADER_SOURCE=env` permet de repasser sur une liste fixe.
-- Le copieur entre toujours après le trader, donc à un moins bon prix, et un wallet public peut être copié à son tour. **Le wallet peut perdre.**
-- Float peut mettre les lancements en pause, changer la répartition ou mettre à jour son programme.
-- Le site est une interface indépendante : n'utilise pas la marque Float comme si c'était la tienne.
-- Pas de redistribution des profits aux holders : risque de qualification en titre financier. Le burn est plus sûr.
+## Développement local
+```bash
+cp .dev.vars.example .dev.vars    # puis remplir
+npx wrangler d1 migrations apply copy-launch --local
+npm run dev                       # http://localhost:8787
+npm test                          # détection des swaps
+npm run verify:float              # compatibilité avec le programme Float actuel (lecture et simulation mainnet)
+```
 
-## Hébergement
-Le projet a deux processus :
+## Programme Float
+Float n'a pas d'IDL publique. Le format de l'instruction `launch` a été reconstitué à partir des transactions on-chain, et `npm run verify:float` le vérifie contre un vrai lancement. Le programme est modifiable par Float : s'il change, `checkFloatConfig()` bloque les lancements au lieu d'envoyer une transaction cassée.
 
-| Processus | Commande | Ce qu'il lui faut |
-|---|---|---|
-| Site + API | `npm run start:web` | Node 20+, écriture disque (`DATA_DIR` : métadonnées, images, registre des coins) |
-| Moteur de copy-trading | `npm run start:engine` | Node 20+, tourne en continu (WebSocket Solana, scan FOMO toutes les 5 h), clé du wallet public |
-
-**Cloudflare** : Pages et Workers ne font pas tourner un process Node permanent, n'ont pas de disque, et coupent les tâches longues. En l'état :
-- le **site** peut y aller seulement après adaptation : l'API vers des Workers, les fichiers vers R2 et le registre vers D1 ou KV ;
-- le **moteur** a besoin d'une machine qui tourne en continu : Railway, Fly.io, Render ou un petit VPS. Avec Cloudflare, la solution simple est un VPS (ou un Cloudflare Container) pour le moteur, et le site sur le même VPS derrière le proxy Cloudflare.
-
-Ne mets jamais `.env` ni la clé du wallet dans le dépôt : configure `BOT_PRIVATE_KEY` comme secret chez l'hébergeur.
+## Coût et risques
+- Le wallet reçoit environ 0,0375 SOL (fee à 1 %) à 0,1125 SOL (fee à 2,5 %) pour 100 SOL échangés sur un coin. Il faut beaucoup de volume pour que le copy-trading ait un capital utile.
+- Le copieur entre toujours après le trader, donc à un moins bon prix, et un wallet public peut lui-même être copié. **Le wallet peut perdre.** Aucun profit n'est promis.
+- Le classement vient d'une API tierce non officielle.
+- Le site est une interface indépendante, sans lien officiel avec Float, Raydium ou FOMO.

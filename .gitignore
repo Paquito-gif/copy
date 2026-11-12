@@ -7,3 +7,5 @@ secrets
 .taste-skill
 .impeccable
 state.json
+.dev.vars
+.wrangler

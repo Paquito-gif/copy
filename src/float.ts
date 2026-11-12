@@ -6,7 +6,9 @@
  * `fee_receiver` passé dans les données de l'instruction (il n'a pas besoin d'être le créateur).
  * Float peut mettre à jour son programme : `checkFloatConfig()` doit passer avant chaque lancement.
  */
-import { Connection, PublicKey, TransactionInstruction } from '@solana/web3.js';
+import { PublicKey, TransactionInstruction } from '@solana/web3.js';
+import { Buffer } from 'node:buffer';
+import type { Rpc } from './lib/rpc.js';
 
 export const FLOAT_PROGRAM = new PublicKey('3KguFi7YYzLgttG46fRism16CfcuNCkDh6U7td9JTqxX');
 export const LAUNCHLAB_PROGRAM = new PublicKey('LanMV9sAd7wArD4vJFi2qDdfnVhFxYSUg6eADduJ3uj');
@@ -156,10 +158,10 @@ export function decodeConfig(d: Buffer): FloatConfig {
 }
 
 /** Vérifie que Float accepte les lancements et que nos dérivations correspondent toujours à la config on-chain. */
-export async function checkFloatConfig(conn: Connection): Promise<FloatConfig> {
-  const acc = await conn.getAccountInfo(FLOAT_CONFIG);
-  if (!acc || !acc.owner.equals(FLOAT_PROGRAM)) throw new Error('Config Float introuvable');
-  const cfg = decodeConfig(acc.data);
+export async function checkFloatConfig(rpc: Rpc): Promise<FloatConfig> {
+  const acc = await rpc.getAccountInfo(FLOAT_CONFIG.toBase58());
+  if (!acc || acc.owner !== FLOAT_PROGRAM.toBase58()) throw new Error('Config Float introuvable');
+  const cfg = decodeConfig(Buffer.from(acc.data));
   if (cfg.launchesPaused) throw new Error('Float a mis les lancements en pause');
   for (const t of [0, 1, 2]) {
     if (cfg.platforms[t] !== derive.platformConfig(t).toBase58()) {
@@ -188,20 +190,20 @@ export function decodeLaunchState(d: Buffer): LaunchState {
     coinFeesClaimed: u(), holderRewards: u(), holderRewardsPaid: u(), devOwed: u() };
 }
 
-export async function readLaunchState(conn: Connection, mint: PublicKey): Promise<LaunchState | null> {
-  const acc = await conn.getAccountInfo(derive.launch(mint));
-  if (!acc || !acc.owner.equals(FLOAT_PROGRAM)) return null;
-  return decodeLaunchState(acc.data);
+export async function readLaunchState(rpc: Rpc, mint: PublicKey): Promise<LaunchState | null> {
+  const acc = await rpc.getAccountInfo(derive.launch(mint).toBase58());
+  if (!acc || acc.owner !== FLOAT_PROGRAM.toBase58()) return null;
+  return decodeLaunchState(Buffer.from(acc.data));
 }
 
 /** Un quote est lançable seulement si Float l'a activé (compte `quote` existant). */
-export async function isQuoteEnabled(conn: Connection, quote: PublicKey): Promise<boolean> {
-  const acc = await conn.getAccountInfo(derive.quoteAsset(quote));
-  return !!acc && acc.owner.equals(DISC_QUOTE_ASSET_OWNER);
+export async function isQuoteEnabled(rpc: Rpc, quote: PublicKey): Promise<boolean> {
+  const acc = await rpc.getAccountInfo(derive.quoteAsset(quote).toBase58());
+  return !!acc && acc.owner === DISC_QUOTE_ASSET_OWNER.toBase58();
 }
 
-export async function isTickerTaken(conn: Connection, ticker: string): Promise<boolean> {
-  return !!(await conn.getAccountInfo(derive.ticker(ticker)));
+export async function isTickerTaken(rpc: Rpc, ticker: string): Promise<boolean> {
+  return !!(await rpc.getAccountInfo(derive.ticker(ticker).toBase58()));
 }
 
 export const TOKEN_PROGRAMS = { TOKEN, TOKEN_2022 };

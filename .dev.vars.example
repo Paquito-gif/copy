@@ -1,0 +1,5 @@
+# Copier en .dev.vars pour `npm run dev` (jamais commité). En production : wrangler secret put …
+RPC_URL=https://mainnet.helius-rpc.com/?api-key=XXXX
+BOT_PRIVATE_KEY=
+ADMIN_TOKEN=
+FOMO_API_KEY=
