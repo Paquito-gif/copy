@@ -7,6 +7,7 @@ import { ComputeBudgetProgram, PublicKey, TransactionMessage, VersionedTransacti
 import { type Env, settings, SOL_MINT, USDC_MINT } from './lib/env.js';
 import { SITE } from './site.gen.js';
 import { Rpc, LAMPORTS_PER_SOL, b64 } from './lib/rpc.js';
+import { getQuote } from './lib/jupiter.js';
 import {
   buildLaunchIx, checkFloatConfig, isQuoteEnabled, isTickerTaken, readLaunchState, validateLaunch, FEE_TIERS, derive,
 } from './float.js';
@@ -232,6 +233,86 @@ async function apiTrader(env: Env) {
   });
 }
 
+// ---------- Leaderboard FOMO (affichage) ----------
+async function apiLeaderboard(env: Env, window: string) {
+  if (!['24h', '7d', '30d'].includes(window)) throw new HttpError(400, 'Fenêtre : 24h, 7d ou 30d');
+  const s = settings(env);
+  const rows = await cached(`lb-${window}-v1`, 300, async () => {
+    const url = new URL(s.leaderboardUrl);
+    url.searchParams.set('window', window);
+    url.searchParams.set('limit', String(s.fomoApiKey ? 50 : 10));
+    const headers: Record<string, string> = { Accept: 'application/json' };
+    if (s.fomoApiKey) headers.Authorization = `Bearer ${s.fomoApiKey}`;
+    const r = await fetch(url, { headers });
+    if (!r.ok) throw new HttpError(502, `Classement FOMO indisponible (HTTP ${r.status})`);
+    const body = (await r.json()) as any;
+    const data: any[] = Array.isArray(body.data) ? body.data : Array.isArray(body.traders) ? body.traders : [];
+    return {
+      window, source: body.source ?? null, syncedAt: body.syncedAt ?? null,
+      traders: data.map((t) => ({
+        rank: Number(t.rank), handle: String(t.handle ?? ''), displayName: t.displayName ?? null,
+        avatarUrl: typeof t.avatarUrl === 'string' && t.avatarUrl.startsWith('https://') ? t.avatarUrl : null,
+        pnlUsd: typeof t.pnlUsd === 'number' ? t.pnlUsd : null,
+        volumeUsd: typeof t.volumeUsd === 'number' ? t.volumeUsd : null,
+        trades: typeof t.trades === 'number' ? t.trades : null,
+        returnPct: typeof t.returnPct === 'number' ? t.returnPct : null,
+        followers: typeof t.followers === 'number' ? t.followers : null,
+        verified: !!t.verified,
+        solana: (Array.isArray(t.wallets) ? t.wallets : []).filter((w: any) => w?.chain === 'solana').map((w: any) => String(w.address)),
+        topHoldings: (Array.isArray(t.topHoldings) ? t.topHoldings : []).slice(0, 3).map((h: any) => ({
+          symbol: String(h.symbol ?? h.ticker ?? ''), icon: typeof (h.imageUrl ?? h.icon) === 'string' ? (h.imageUrl ?? h.icon) : null,
+        })).filter((h: any) => h.symbol),
+      })),
+    };
+  });
+  const st = await engineState(env);
+  const copied = new Set<string>(st.wallets ?? []);
+  return { ...rows, copiedWindow: s.leaderboardWindow, traders: rows.traders.map((t: any) => ({ ...t, copied: t.solana.some((w: string) => copied.has(w)) })) };
+}
+
+// ---------- PnL du copy-trading ----------
+async function solUsd(): Promise<number | null> {
+  return cached('sol-usd-v1', 120, async () => {
+    try {
+      const r = await fetch(`https://lite-api.jup.ag/price/v3?ids=${SOL_MINT}`);
+      const j = (await r.json()) as Record<string, { usdPrice?: number }>;
+      return j[SOL_MINT]?.usdPrice ?? null;
+    } catch { return null; }
+  });
+}
+
+async function apiPnl(env: Env) {
+  const s = settings(env);
+  const [st, bal, usd, coins] = await Promise.all([
+    engineState(env), new Rpc(env.RPC_URL).getBalance(env.FEE_RECEIVER).catch(() => 0), solUsd(), apiCoins(env),
+  ]);
+  // valeur actuelle des positions ouvertes (PnL latent)
+  const positions = await Promise.all(Object.values(st.positions as Record<string, any>).map(async (p: any) => {
+    let valueSol: number | null = null;
+    try { valueSol = Number((await getQuote(s, p.mint, SOL_MINT, BigInt(p.amountRaw))).outAmount) / LAMPORTS_PER_SOL; } catch { /* pas de route */ }
+    return { ...p, valueSol, pnlSol: valueSol == null ? null : valueSol - p.costSol };
+  }));
+  const unrealized = positions.reduce((a, p) => a + (p.pnlSol ?? 0), 0);
+  const events: any[] = st.events ?? [];
+  const sells = events.filter((e) => e.kind === 'sell' && typeof e.detail?.pnl === 'number');
+  let cum = 0;
+  const series = sells.map((e) => ({ t: e.t, pnl: (cum += e.detail.pnl) }));
+  const wins = sells.filter((e) => e.detail.pnl > 0).length;
+  const coinStats = st.coins ?? {};
+  const burnedSol = Object.values(coinStats).reduce((a: number, c: any) => a + (c.buybackSol ?? 0), 0);
+  return {
+    wallet: env.FEE_RECEIVER, solUsd: usd, balanceSol: bal / LAMPORTS_PER_SOL,
+    running: st.running, dryRun: st.dryRun, mode: st.mode,
+    realizedPnlSol: st.realizedPnlSol, unrealizedPnlSol: unrealized, totalFeesSol: st.totalFeesSol,
+    buybackSol: burnedSol, buybackBucketSol: st.buybackBucketSol,
+    trades: { closed: sells.length, wins, losses: sells.length - wins, winRate: sells.length ? wins / sells.length : null },
+    series, positions,
+    history: events.filter((e) => ['buy', 'sell', 'buyback', 'burn', 'convert'].includes(e.kind)).slice(-60).reverse(),
+    coins: coins.map((c) => ({ ...c, stats: coinStats[c.mint] ?? null })),
+    leader: st.leader?.current?.[0] ? { handle: st.leader.current[0].handle, avatarUrl: st.leader.current[0].avatarUrl, pnlUsd: st.leader.current[0].pnlUsd, window: st.leader.current[0].window } : null,
+  };
+}
+
 async function apiAdmin(env: Env, req: Request, body: any) {
   if (!env.ADMIN_TOKEN || req.headers.get('Authorization') !== `Bearer ${env.ADMIN_TOKEN}`) throw new HttpError(401, 'Non autorisé');
   const action = String(body.action ?? '');
@@ -265,6 +346,8 @@ export default {
         if (p === '/api/coins') return json(await apiCoins(env));
         if (p === '/api/stats') return json(await apiStats(env));
         if (p === '/api/trader') return json(await apiTrader(env));
+        if (p === '/api/leaderboard') return json(await apiLeaderboard(env, url.searchParams.get('window') || '24h'));
+        if (p === '/api/pnl') return json(await apiPnl(env));
         if (p === '/api/ticker') {
           const t = clean(url.searchParams.get('t'), 10);
           if (!/^[A-Za-z0-9]{1,10}$/.test(t)) throw new HttpError(400, 'Ticker : 1 à 10 lettres ou chiffres');
@@ -282,7 +365,8 @@ export default {
         }
       }
       if (p.startsWith('/api/')) throw new HttpError(405, 'Méthode non autorisée');
-      const f = SITE[p === '/' ? '/index.html' : p];
+      const PAGES: Record<string, string> = { '/': '/index.html', '/lancer': '/lancer.html', '/leaderboard': '/leaderboard.html', '/pnl': '/pnl.html' };
+      const f = SITE[PAGES[p.replace(/\/$/, '') || '/'] ?? p];
       if (!f || (req.method !== 'GET' && req.method !== 'HEAD')) return new Response('Introuvable', { status: 404 });
       const etag = `"${f.etag}"`;
       const headers = {

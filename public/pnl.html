@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<title>PnL du copy-trading · Copy Launch</title>
+<meta name="description" content="Ce que le copy-trading du n°1 FOMO a rapporté : PnL réalisé et latent, trades, rachats et burns.">
+<!--#include head-->
+</head>
+<body>
+<!--#include header-->
+<main class="wrap" style="padding-bottom:40px">
+  <div class="page-head">
+    <h1 style="font-size:clamp(36px,5.5vw,64px)">PnL du <span class="hl">copy-trade</span></h1>
+    <p>Tout ce que le wallet public a gagné ou perdu en copiant le n°1 FOMO, et ce qu'il a racheté et brûlé.</p>
+  </div>
+  <div class="banner" id="banner" hidden></div>
+
+  <div class="pnl-hero">
+    <div class="sticker big" data-reveal>
+      <span>PnL total (réalisé + latent)</span>
+      <div class="big__num" id="pnl-total">0,000</div>
+      <div class="big__usd" id="pnl-usd">SOL</div>
+      <div class="stats" style="grid-template-columns:1fr 1fr;margin-top:12px">
+        <div class="mini"><span>Réalisé</span><b id="pnl-real">–</b></div>
+        <div class="mini"><span>Latent</span><b id="pnl-unreal">–</b></div>
+        <div class="mini"><span>Trades clôturés</span><b id="pnl-trades">–</b></div>
+        <div class="mini"><span>Trades gagnants</span><b id="pnl-win">–</b></div>
+      </div>
+    </div>
+    <div class="sticker chart" data-reveal>
+      <h3>PnL réalisé cumulé</h3>
+      <div id="chart"></div>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="sticker stat" data-reveal><span>Solde du wallet</span><b class="mono" id="st-bal">–</b><small>SOL</small></div>
+    <div class="sticker stat" data-reveal><span>Fees reçus</span><b class="mono" id="st-fees">–</b><small>SOL</small></div>
+    <div class="sticker stat stat--burn" data-reveal><span>Rachetés et brûlés</span><b class="mono" id="st-burn">–</b><small>SOL</small></div>
+    <div class="sticker stat" data-reveal><span>En attente de rachat</span><b class="mono" id="st-bucket">–</b><small>SOL</small></div>
+  </div>
+
+  <div class="grid2">
+    <div class="sticker panel" data-reveal><h3>Positions ouvertes</h3><div class="list" id="positions"></div></div>
+    <div class="sticker panel" data-reveal><h3>Historique</h3><div class="list" id="history"></div></div>
+  </div>
+
+  <section style="margin-top:40px">
+    <div class="section__head" data-reveal><h2 style="font-size:clamp(26px,3.4vw,40px)">Coins rachetés et brûlés</h2><p>Chaque coin lancé ici, avec les fees qu'il a générés et ce qui a été racheté pour lui.</p></div>
+    <div class="coins" id="coins"></div>
+  </section>
+  <p class="source" style="margin-top:24px">Wallet public : <a class="mono" id="wallet-link" target="_blank" rel="noopener" style="color:var(--sun);word-break:break-all"></a></p>
+</main>
+<!--#include footer-->
+<script type="module" src="/js/pnl.js"></script>
+</body>
+</html>

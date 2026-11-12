@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<title>Leaderboard FOMO · Copy Launch</title>
+<meta name="description" content="Le classement des traders FOMO par PnL, et le trader que le wallet du launchpad copie en ce moment.">
+<!--#include head-->
+</head>
+<body>
+<!--#include header-->
+<main class="wrap" style="padding-bottom:40px">
+  <div class="page-head">
+    <h1 style="font-size:clamp(36px,5.5vw,64px)">Leaderboard <span class="hl">FOMO</span></h1>
+    <p>Les meilleurs traders de FOMO par PnL. Le wallet du launchpad copie le n°1 de la fenêtre <b id="copied-window">24 h</b>, revérifié toutes les 5 h.</p>
+  </div>
+  <div class="lb-tools">
+    <div class="windows" role="group" aria-label="Période">
+      <button type="button" data-w="24h" aria-pressed="true">24 h</button>
+      <button type="button" data-w="7d" aria-pressed="false">7 jours</button>
+      <button type="button" data-w="30d" aria-pressed="false">30 jours</button>
+    </div>
+    <span class="source" id="source"></span>
+  </div>
+  <div class="podium" id="podium" aria-live="polite"></div>
+  <div class="tablewrap">
+    <table class="table" id="table" aria-label="Classement FOMO">
+      <thead><tr><th>#</th><th>Trader</th><th class="num">PnL</th><th class="num hide-sm">Volume</th><th class="num hide-sm">Trades</th><th class="hide-sm">Avoirs principaux</th><th class="hide-sm"><span class="sr">Wallet</span></th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+  <p class="source" style="margin-top:16px">Chiffres tels que FOMO les affiche (PnL réalisé et latent mélangés), lus via une API tierce non officielle. Top 10 affiché.</p>
+</main>
+<!--#include footer-->
+<script type="module" src="/js/leaderboard.js"></script>
+</body>
+</html>
