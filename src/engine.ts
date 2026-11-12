@@ -11,7 +11,7 @@ import { DurableObject } from 'cloudflare:workers';
 import { Keypair, PublicKey, TransactionMessage, VersionedTransaction, ComputeBudgetProgram, type TransactionInstruction } from '@solana/web3.js';
 import { createBurnCheckedInstruction, createCloseAccountInstruction, getAssociatedTokenAddressSync, TOKEN_PROGRAM_ID } from '@solana/spl-token';
 import bs58 from 'bs58';
-import { type Env, type Settings, settings, SOL_MINT } from './lib/env.js';
+import { type Env, type Settings, settings, SOL_MINT, rpcUrl } from './lib/env.js';
 import { Rpc, LAMPORTS_PER_SOL, b64 } from './lib/rpc.js';
 import { getQuote, impactPct, swap } from './lib/jupiter.js';
 import { detectSwap, type Swap } from './lib/detect.js';
@@ -51,7 +51,7 @@ export class CopyEngine extends DurableObject<Env> {
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
     this.s = settings(env);
-    this.rpc = new Rpc(env.RPC_URL);
+    this.rpc = new Rpc(rpcUrl(env));
   }
 
   // ---------- état ----------

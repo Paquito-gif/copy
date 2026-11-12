@@ -52,6 +52,8 @@ MIN_BUYBACK_SOL = "0.1"
 POLL_SECONDS = "10"
 MONITOR_SECONDS = "30"
 DRY_RUN = "true"
+# "off": keyed RPCs (Helius…) in RPC_URL are skipped to save credits; set "on" for launch
+PRIVATE_RPC = "off"
 
 # Secrets (jamais dans ce fichier) :
 #   wrangler secret put RPC_URL          (ex. https://mainnet.helius-rpc.com/?api-key=…)

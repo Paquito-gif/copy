@@ -8,6 +8,7 @@ export interface Env {
 
   // secrets
   RPC_URL: string;
+  PRIVATE_RPC?: string;       // on | off: off = keyed RPCs (e.g. Helius) are skipped to save credits
   BOT_PRIVATE_KEY?: string;   // clé du wallet public (base58) : seul le moteur l'utilise
   ADMIN_TOKEN?: string;       // protège /api/admin/*
   FOMO_API_KEY?: string;
@@ -76,3 +77,12 @@ export function settings(env: Env) {
   };
 }
 export type Settings = ReturnType<typeof settings>;
+
+/** RPC list to use. With PRIVATE_RPC=off, URLs carrying a key (query string or credentials) are left out. */
+export function rpcUrl(env: Pick<Env, 'RPC_URL' | 'PRIVATE_RPC'>): string {
+  const all = String(env.RPC_URL ?? '').split(',').map((u) => u.trim()).filter(Boolean);
+  if ((env.PRIVATE_RPC ?? 'on').toLowerCase() !== 'off') return all.join(',');
+  const keyed = (u: string) => { try { const x = new URL(u); return !!x.search || !!x.username || /key|token/i.test(x.pathname); } catch { return true; } };
+  const open = all.filter((u) => !keyed(u));
+  return (open.length ? open : ['https://solana-rpc.publicnode.com', 'https://api.mainnet-beta.solana.com']).join(',');
+}

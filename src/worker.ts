@@ -4,7 +4,7 @@
  * Le Worker ne signe jamais rien : l'utilisateur signe le lancement dans son wallet.
  */
 import { ComputeBudgetProgram, PublicKey, TransactionMessage, VersionedTransaction } from '@solana/web3.js';
-import { type Env, settings, SOL_MINT, USDC_MINT } from './lib/env.js';
+import { type Env, settings, SOL_MINT, USDC_MINT, rpcUrl } from './lib/env.js';
 import { SITE } from './site.gen.js';
 import { detectSwap } from './lib/detect.js';
 import { Rpc, LAMPORTS_PER_SOL, b64 } from './lib/rpc.js';
@@ -94,7 +94,7 @@ async function apiQuotes(env: Env) {
   const hit = await cache.match(req);
   if (hit) return hit.json() as Promise<{ mint: string; symbol: string; name: string; icon?: string }[]>;
 
-  const rpc = new Rpc(env.RPC_URL);
+  const rpc = new Rpc(rpcUrl(env));
   const list: { mint: string; symbol: string; name: string; icon?: string }[] = [
     { mint: SOL_MINT, symbol: 'SOL', name: 'Solana' },
     { mint: USDC_MINT, symbol: 'USDC', name: 'USD Coin' },
@@ -132,7 +132,7 @@ async function apiQuotes(env: Env) {
 async function apiConfig(env: Env) {
   const s = settings(env);
   const [cfg, st] = await Promise.all([
-    checkFloatConfig(new Rpc(env.RPC_URL)).catch((e) => ({ error: (e as Error).message })),
+    checkFloatConfig(new Rpc(rpcUrl(env))).catch((e) => ({ error: (e as Error).message })),
     engineState(env).catch(() => null),
   ]);
   return {
@@ -190,7 +190,7 @@ async function apiMetadata(env: Env, origin: string, body: any, ip = 'unknown') 
 }
 
 async function apiBuild(env: Env, origin: string, body: any) {
-  const rpc = new Rpc(env.RPC_URL);
+  const rpc = new Rpc(rpcUrl(env));
   const feeReceiver = pubkey(env.FEE_RECEIVER, 'FEE_RECEIVER');
   const creator = pubkey(body.creator, 'wallet');
   const quoteMint = pubkey(body.quoteMint, 'pair');
@@ -229,7 +229,7 @@ async function apiBuild(env: Env, origin: string, body: any) {
 }
 
 async function apiConfirm(env: Env, origin: string, body: any) {
-  const rpc = new Rpc(env.RPC_URL);
+  const rpc = new Rpc(rpcUrl(env));
   const mint = pubkey(body.mint, 'mint');
   const signature = clean(body.signature, 100);
   let ls = null;
@@ -268,7 +268,7 @@ async function engineState(env: Env): Promise<any> {
 }
 
 async function apiStats(env: Env) {
-  const [st, bal] = await Promise.all([engineState(env), new Rpc(env.RPC_URL).getBalance(env.FEE_RECEIVER).catch(() => 0)]);
+  const [st, bal] = await Promise.all([engineState(env), new Rpc(rpcUrl(env)).getBalance(env.FEE_RECEIVER).catch(() => 0)]);
   return {
     wallet: env.FEE_RECEIVER, balanceSol: bal / LAMPORTS_PER_SOL, traders: st.wallets, mode: st.mode,
     totalFeesSol: st.totalFeesSol, realizedPnlSol: st.realizedPnlSol, buybackBucketSol: st.buybackBucketSol,
@@ -287,7 +287,7 @@ async function apiTrader(env: Env) {
     let lastActiveAt: number | null = null, recentTx = 0;
     if (address) {
       try {
-        const sigs = await new Rpc(env.RPC_URL).getSignatures(address, { limit: 25 });
+        const sigs = await new Rpc(rpcUrl(env)).getSignatures(address, { limit: 25 });
         lastActiveAt = sigs[0]?.blockTime ? sigs[0].blockTime * 1000 : null;
         recentTx = sigs.filter((x) => (x.blockTime ?? 0) > Date.now() / 1000 - 86_400 && !x.err).length;
       } catch { /* RPC indisponible */ }
@@ -344,7 +344,7 @@ async function buildTrades(env: Env) {
     const top = st.leader?.current?.[0];
     const address = top?.wallets?.[0] ?? st.wallets?.[0] ?? null;
     if (!address) return { address: null, handle: null, items: [] };
-    const rpc = new Rpc(env.RPC_URL);
+    const rpc = new Rpc(rpcUrl(env));
     const sigs = (await rpc.getSignatures(address, { limit: 8 })).filter((x) => !x.err);
     const items: any[] = [];
     for (let i = 0; i < sigs.length && items.length < 6; i += 3) { // 3 at a time: fast, yet gentle on the free RPC
@@ -381,7 +381,7 @@ async function apiTrades(env: Env, ctx: ExecutionContext) {
 }
 
 async function apiSlot(env: Env) {
-  return cached('slot-v1', 4, async () => ({ slot: await new Rpc(env.RPC_URL).getSlot(), at: Date.now() }));
+  return cached('slot-v1', 4, async () => ({ slot: await new Rpc(rpcUrl(env)).getSlot(), at: Date.now() }));
 }
 
 // ---------- Leaderboard FOMO (affichage) ----------
@@ -435,7 +435,7 @@ async function solUsd(): Promise<number | null> {
 async function apiPnl(env: Env) {
   const s = settings(env);
   const [st, bal, usd, coins] = await Promise.all([
-    engineState(env), new Rpc(env.RPC_URL).getBalance(env.FEE_RECEIVER).catch(() => 0), solUsd(), apiCoins(env),
+    engineState(env), new Rpc(rpcUrl(env)).getBalance(env.FEE_RECEIVER).catch(() => 0), solUsd(), apiCoins(env),
   ]);
   // valeur actuelle des positions ouvertes (PnL latent)
   const positions = await Promise.all(Object.values(st.positions as Record<string, any>).map(async (p: any) => {
@@ -470,11 +470,13 @@ async function apiAdmin(env: Env, req: Request, body: any) {
   if (action === 'rpc') {
     // health of each configured RPC: host name and latency only, never the URL's key
     const urls = String(env.RPC_URL ?? '').split(',').map((u) => u.trim()).filter(Boolean);
+    const used = new Set(rpcUrl(env).split(','));
     return Promise.all(urls.map(async (u) => {
       const host = (() => { try { return new URL(u).host; } catch { return 'invalid URL'; } })();
       const t0 = Date.now();
-      try { const slot = await new Rpc(u).getSlot(); return { host, ok: true, ms: Date.now() - t0, slot }; }
-      catch { return { host, ok: false, ms: Date.now() - t0 }; }
+      if (!used.has(u)) return { host, inUse: false, note: 'skipped (PRIVATE_RPC=off)' }; // not called: saves credits
+      try { const slot = await new Rpc(u).getSlot(); return { host, inUse: true, ok: true, ms: Date.now() - t0, slot }; }
+      catch { return { host, inUse: true, ok: false, ms: Date.now() - t0 }; }
     }));
   }
   if (!['start', 'pause', 'scan', 'fees'].includes(action)) throw new HttpError(400, 'action: start | pause | scan | fees | rpc');
@@ -519,7 +521,7 @@ export default {
         if (p === '/api/ticker') {
           const t = clean(url.searchParams.get('t'), 10);
           if (!/^[A-Za-z0-9]{1,10}$/.test(t)) throw new HttpError(400, 'Ticker: 1 to 10 letters or digits');
-          return json({ ticker: t.toUpperCase(), taken: await isTickerTaken(new Rpc(env.RPC_URL), t) });
+          return json({ ticker: t.toUpperCase(), taken: await isTickerTaken(new Rpc(rpcUrl(env)), t) });
         }
         const file = /^\/(m\/[\w-]+\.json|img\/[\w-]+\.(?:png|jpg|webp|gif))$/.exec(p);
         if (file) {
