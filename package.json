@@ -1,0 +1,29 @@
+{
+  "name": "float-launchpad",
+  "version": "1.0.0",
+  "description": "Launchpad sur Float : les creator fees copy-tradent le top FOMO, les profits rach\u00e8tent et br\u00fblent les coins",
+  "scripts": {
+    "start:web": "tsx src/server.ts",
+    "start:engine": "tsx src/engine/index.ts",
+    "verify:float": "tsx scripts/verify-float.ts",
+    "test": "tsx test/detect.test.ts",
+    "typecheck": "tsc --noEmit",
+    "leader": "tsx src/engine/leaderboard.ts"
+  },
+  "dependencies": {
+    "@raydium-io/raydium-sdk-v2": "^0.2.84-alpha",
+    "@solana/spl-token": "^0.4.15",
+    "@solana/web3.js": "^1.99.0",
+    "bn.js": "^5.2.5",
+    "bs58": "^6.0.0",
+    "dotenv": "^18.0.10"
+  },
+  "devDependencies": {
+    "@types/bn.js": "^5.2.0",
+    "@types/node": "^26.6.6",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3"
+  },
+  "type": "module",
+  "private": true
+}
