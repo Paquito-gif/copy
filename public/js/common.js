@@ -131,7 +131,7 @@ function initWallet() {
   $('wallet-btn')?.addEventListener('click', async () => {
     try {
       if (!(await connectWallet())) { setWalletLabel('Get Phantom'); window.open('https://phantom.com/download', '_blank', 'noopener'); }
-    } catch { setWalletLabel('Request declined'); setTimeout(() => setWalletLabel('Connect Wallet'), 2500); }
+    } catch { setWalletLabel('Request declined'); setTimeout(() => setWalletLabel('Connect'), 2500); }
   });
   const p = findProvider();
   p?.connect?.({ onlyIfTrusted: true }).then((res) => {
@@ -141,15 +141,24 @@ function initWallet() {
   }).catch(() => {});
 }
 
-// ---------- active page in the dock ----------
+// ---------- navigation: active page + mobile menu ----------
 function markActive() {
   const path = location.pathname.replace(/\/$/, '') || '/';
-  document.querySelectorAll('.dock a').forEach((a) => {
+  document.querySelectorAll('.nav a').forEach((a) => {
     if ((a.getAttribute('href').replace(/\/$/, '') || '/') === path) a.setAttribute('aria-current', 'page');
   });
 }
+function initMenu() {
+  const btn = $('menu-btn'), nav = $('nav');
+  if (!btn || !nav) return;
+  const set = (open) => { nav.classList.toggle('is-open', open); btn.setAttribute('aria-expanded', String(open)); btn.setAttribute('aria-label', open ? 'Close menu' : 'Open menu'); };
+  btn.addEventListener('click', () => set(!nav.classList.contains('is-open')));
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') set(false); });
+  document.addEventListener('click', (e) => { if (!nav.contains(e.target) && !btn.contains(e.target)) set(false); });
+}
 
 markActive();
+initMenu();
 initWallet();
 loadTicker();
 reveal();

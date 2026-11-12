@@ -9,21 +9,19 @@ const SPLIT = [
 ];
 const WINDOW = { '24h': '24h', '7d': '7-day', '30d': '30-day' };
 
-async function copybar() {
-  const [t, lb] = await Promise.all([api('/api/trader'), api('/api/leaderboard?window=24h').catch(() => null)]);
+async function flow() {
+  const [t, lb, quotes] = await Promise.all([api('/api/trader'), api('/api/leaderboard?window=24h').catch(() => null), api('/api/quotes').catch(() => [])]);
+  const icons = quotes.filter((q) => q.icon).slice(0, 4);
+  $('fl-icons').replaceChildren(...icons.map((q) => el('img', { src: q.icon, alt: '', loading: 'lazy' })));
   const row = lb?.traders.find((x) => x.copied) ?? lb?.traders[0];
   const name = t.label || (row ? `@${row.handle}` : null);
-  if (!name) { $('cc-name').textContent = 'Leaderboard unavailable'; return; }
-  $('cc-avatar').replaceWith(avatar(row?.avatarUrl, name, 'avatar--lg'));
-  $('cc-name').textContent = name;
-  $('cc-rank').textContent = `FOMO #${t.rank ?? row?.rank ?? 1}`;
+  if (!name) { $('fl-meta').textContent = 'Leaderboard unavailable'; return; }
+  $('fl-avatar').replaceWith(avatar(row?.avatarUrl, name, 'avatar--sm'));
+  $('fl-name').textContent = name;
   const pnl = row?.pnlUsd ?? t.pnlUsd;
-  $('cc-pnl').textContent = usd(pnl);
-  $('cc-pnl').className = pnl >= 0 ? 'up' : 'down';
-  $('cc-window').textContent = `${WINDOW[t.window] ?? '24h'} PnL`;
-  $('cc-last').textContent = t.lastActiveAt ? ago(t.lastActiveAt) : '–';
-  $('cc-tx').textContent = t.recentTx ? String(t.recentTx) : '–';
-  $('cc-state').textContent = t.running ? 'Copying live' : 'Engine paused';
+  $('fl-pnl').textContent = usd(pnl);
+  $('fl-pnl').className = `flow__value ${pnl >= 0 ? 'up' : 'down'}`;
+  $('fl-meta').textContent = `FOMO #${t.rank ?? row?.rank ?? 1} · ${WINDOW[t.window] ?? '24h'} PnL${t.lastActiveAt ? ` · traded ${ago(t.lastActiveAt)}` : ''}`;
 }
 
 async function numbers() {
@@ -34,6 +32,12 @@ async function numbers() {
   countTo($('st-coins'), coins.length, { decimals: 0 });
   $('st-engine').textContent = pnl.running ? (pnl.dryRun ? 'engine in simulation' : 'engine live') : 'engine paused';
   $('bb-pct').textContent = `${cfg.buybackPct}%`;
+  for (const id of ['f-burn', 'fl-burn']) $(id).textContent = `${cfg.buybackPct}%`;
+  const share = cfg.float?.split ? `${cfg.float.split.creator / 100}%` : '5%';
+  for (const id of ['f-share', 'fl-share']) $(id).textContent = share;
+  $('fl-wallet').textContent = `${cfg.feeReceiver.slice(0, 4)}…${cfg.feeReceiver.slice(-4)}`;
+  $('fl-balance').textContent = `${pnl.balanceSol.toFixed(3)} SOL`;
+  $('fl-burned').textContent = `${pnl.buybackSol.toFixed(3)} SOL`;
   if (cfg.float?.split) {
     const s = cfg.float.split;
     $('split-bar').replaceChildren(...SPLIT.map(([k, , c], i) => el('i', { style: `flex:${s[k]};background:${c};animation-delay:${i * 80}ms` })));
@@ -42,5 +46,5 @@ async function numbers() {
   }
 }
 
-copybar().catch(() => { $('cc-name').textContent = 'Leaderboard unavailable'; });
+flow().catch(() => { $('fl-meta').textContent = 'Leaderboard unavailable'; });
 numbers().catch(() => {});
