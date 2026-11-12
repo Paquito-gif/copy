@@ -119,7 +119,7 @@ export function countUsd(node, value) {
 
 // ---------- 3D details ----------
 const FACES = {
-  logo: '<svg viewBox="0 0 32 32"><path d="M5 17a11 11 0 0 1 22 0z" fill="currentColor"/><rect x="5" y="19.5" width="22" height="2.4" rx="1.2" fill="currentColor" opacity=".85"/><rect x="8.5" y="23.6" width="15" height="2.4" rx="1.2" fill="currentColor" opacity=".6"/><rect x="12" y="27.7" width="8" height="2.4" rx="1.2" fill="currentColor" opacity=".38"/></svg>',
+  logo: '<svg viewBox="0 0 32 32"><rect x="7" y="9" width="7" height="16" rx="2" fill="currentColor"/><path d="M10.5 5v4M10.5 25v3" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><rect x="18" y="5" width="7" height="16" rx="2" fill="currentColor" opacity=".6"/><path d="M21.5 2v3M21.5 21v4" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" opacity=".6"/></svg>',
   burn: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22c4 0 7-2.7 7-6.6 0-4.4-4.2-6.4-5-11.4-2.6 1.8-4.2 4.5-4.2 7.2-1-.8-1.6-2-1.8-3.2C6.6 9.6 5 12.3 5 15.4 5 19.3 8 22 12 22z"/></svg>',
 };
 /** Builds a real 3D coin: two faces and a stack of rim layers for thickness. */
