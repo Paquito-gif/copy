@@ -372,7 +372,8 @@ export default {
       const etag = `"${f.etag}"`;
       const headers = {
         'Content-Type': f.type, ETag: etag, 'X-Content-Type-Options': 'nosniff',
-        'Cache-Control': f.type.startsWith('text/html') ? 'no-cache' : 'public, max-age=3600',
+        // URLs versionnées (?v=…) : cache long ; sinon (HTML, ou appel sans version) le navigateur revalide toujours
+        'Cache-Control': !f.type.startsWith('text/html') && url.searchParams.has('v') ? 'public, max-age=31536000, immutable' : 'no-cache',
       };
       if (req.headers.get('If-None-Match') === etag) return new Response(null, { status: 304, headers });
       return new Response(req.method === 'HEAD' ? null : f.body, { headers });
